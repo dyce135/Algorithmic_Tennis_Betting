@@ -94,6 +94,35 @@ def odds_avg(file, runner_id_1, runner_id_2):
     print(df)
     return df
 
+def best_back(runner_list, start, end):
+
+    list = []
+
+    df_datetime = pd.date_range(start, end, freq='100ms')
+    print(df_datetime)
+
+    for item in runner_list:
+        if 'atb' in item[0]:
+            if len(item[0]['atb']) > 1:
+                temp = []
+                for i in item[0]['atb']:
+                    temp.append(i[0])
+                temp = np.array(temp)
+                list.append([temp.max(), item[1]])
+            else:
+                list.append([item[0]['atb'][0][0], item[1]])
+
+    del list[-1]
+    arr = np.array(list)
+    df = pd.DataFrame(np.zeros(df_datetime.shape), index=df_datetime)
+    for index, time in enumerate(arr[:, 1]):
+        df.loc[pd.to_datetime(round(time, -2), unit='ms')] = arr[index, 0]
+    df.replace(0, np.nan, inplace=True)
+    df.interpolate(method='time', limit_direction='both', inplace=True)
+    df = df.resample('250ms').max()
+
+    return df
+
 
 def calc_pup():
     pass
