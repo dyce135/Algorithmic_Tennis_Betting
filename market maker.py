@@ -124,7 +124,7 @@ batl = market_books[0].runners[0].ex.available_to_lay
 market_maker = MarketMaker(trading, batb, batl)
 
 # place orders
-market_maker.make_market(num_ticks=5)
+# market_maker.make_market(num_ticks=5)
 
 # logout
 trading.logout()
