@@ -4,8 +4,9 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow import keras as k
-from tensorflow.keras import layers
+from tensorflow import keras
+from tensorflow.keras.layers import LSTM, GRU, RepeatVector, Dense, TimeDistributed
+from tensorflow.keras import Sequential
 import json
 import os
 
@@ -14,19 +15,18 @@ os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'
 os.environ['LD_LIBRARY_PATH'] = '$LD_LIBRARY_PATH:/opt/rocm-5.3.0/lib'
 
 
-# LSTM model class
-class LstmModel(k.Model):
+def seq2seq(input_dim, output_dim):
+    model = Sequential()
+    # Encoder
+    model.add(LSTM(units=input_dim, return_sequences=False, activation = 'tanh'))
+    model.add(Dense(150, activation="relu") )
+    #Use "RepeatVector" to copy N copies of Encoder's output (last time step) as Decoder's N inputs
+    model.add(RepeatVector(output_dim))
+    # Decoder (second LSTM)
+    model.add(LSTM(units=input_dim, activation = 'tanh', return_sequences=True) )
+    # TimeDistributed is to ensure consistency between Dense and Decoder
+    model.add(TimeDistributed(Dense(output_dim, activation="linear")) )
 
-    # Constructor with layers
-    def __init__(self, size, **kwargs):
-        self.kernel_dev = kwargs.get('kernel_stddev', 0.01)
-        self.kernel = k.initializers.RandomNormal(mean=0, stddev=self.kernel_dev)
-        self.bias = kwargs.get('kernel_initializer', k.initializers.Zeros())
-        self.drop = kwargs.get('drop', 0.5)
-        self.nodes = kwargs.get('nodes', 1024)
-        self.normalise = kwargs.get('normalise', True)
-        super().__init__()
+    return model
 
-    # Call function to connect layers
-    def call(self, inputs):
-        return out
+
