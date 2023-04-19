@@ -1,0 +1,70 @@
+import random
+import json
+from scipy.stats import beta
+
+# Read JSON file and load data
+with open('betfair_data.json', 'r') as file:
+    data = json.load(file)
+
+class BayesianBettingMarket:
+    def __init__(self, data):
+        self.match_id = data["match_id"]
+        self.players = data["players"]
+        self.new_information = data["new_information"]
+
+    def update_odds(self):
+        for player in self.players:
+            prior_alpha, prior_beta = player["prior"]
+            new_wins = self.new_information[player["name"]]["wins"]
+            new_losses = self.new_information[player["name"]]["losses"]
+
+            updated_alpha = prior_alpha + new_wins
+            updated_beta = prior_beta + new_losses
+
+            updated_distribution = beta(updated_alpha, updated_beta)
+            player["odds"] = updated_distribution.mean()
+
+    def simulate_market(self, duration, num_bettors):
+        self.update_odds()
+        results = []
+
+        for t in range(duration):
+            bettors = self.generate_bettors(num_bettors)
+            market_snapshot = {
+                "time": t,
+                "bets": bettors,
+            }
+            results.append(market_snapshot)
+
+        return results
+
+    def generate_bettors(self, num_bettors):
+        bettors = []
+
+        for _ in range(num_bettors):
+            bettor = {
+                "player": self.select_player(),
+                "stake": random.uniform(1, 100),
+            }
+            bettors.append(bettor)
+
+        return bettors
+
+    def select_player(self):
+        total_odds = sum([player["odds"] for player in self.players])
+        selection = random.uniform(0, total_odds)
+
+        for player in self.players:
+            if selection < player["odds"]:
+                return player
+            selection -= player["odds"]
+
+# Initialize and simulate the Bayesian betting market
+market = BayesianBettingMarket(data)
+simulation_duration = 100
+num_bettors_per_round = 10
+
+simulated_market = market.simulate_market(simulation_duration, num_bettors_per_round)
+
+# Analyze the results
+analyze_market(simulated_market)
