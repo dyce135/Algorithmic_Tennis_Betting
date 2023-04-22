@@ -87,7 +87,7 @@ def game_trans_matrix(ppoint_server):
 def prob_game(ppoint_server, s_game):
     matrix = game_trans_matrix(ppoint_server)
     temp = matrix
-    for i in range(50):
+    for i in range(1000):
         matrix = np.dot(matrix, matrix)
     matrix = pd.DataFrame(data=matrix, index=col_row_names, columns=col_row_names)
     probs = np.dot(s_game, matrix)
@@ -229,7 +229,7 @@ def tie_break(ppoint_srv1, ppoint_srv2):
 
 def prob_tie(ppoint_srv1, ppoint_srv2, s_tb):
     matrix = tie_break(ppoint_srv1, ppoint_srv2)
-    for i in range(1000):
+    for i in range(10000):
         matrix = np.dot(matrix, matrix)
     matrix = pd.DataFrame(data=matrix, index=col_row_names2, columns=col_row_names2)
     probs = np.dot(s_tb, matrix)
@@ -349,6 +349,7 @@ def match(pset_v1):
     tMat4.at["2-2", "3-2"] = pset_v1
     tMat4.at["1-2", "2-2"] = pset_v1
     tMat4.at["2-0", "3-0"] = pset_v1
+    tMat4.at["0-2", "1-2"] = pset_v1
     tMat4.at["2-1", "3-1"] = pset_v1
 
     tMat4.at["0-0", "0-1"] = pset_v2
@@ -358,6 +359,7 @@ def match(pset_v1):
     tMat4.at["2-2", "2-3"] = pset_v2
     tMat4.at["1-2", "1-3"] = pset_v2
     tMat4.at["2-0", "2-1"] = pset_v2
+    tMat4.at["0-2", "0-3"] = pset_v2
     tMat4.at["2-1", "2-2"] = pset_v2
 
     # Set stationary states
@@ -370,6 +372,7 @@ def match(pset_v1):
 
     tMat4.at["V1", "V1"] = 1
     tMat4.at["V2", "V2"] = 1
+
     return tMat4
 
 
@@ -378,6 +381,7 @@ def prob_match(pset_v1, s_match):
     for i in range(1000):
         matrix = np.dot(matrix, matrix)
     matrix = pd.DataFrame(data=matrix, index=col_row_names4, columns=col_row_names4)
+    print(matrix)
     probs = np.dot(s_match, matrix)
     return probs
 
@@ -444,10 +448,10 @@ def predict3(setscore, gamescore, pwin1, pwin2, ptie1, pset_v1, match_initial_st
     s1game = game_initial_state
     s1tb = tb_initial_state
 
-    s1match[0, "0-0"] = 0
-    s1match[0, setscore] = 1
-    s1set[0, "0-0"] = 0
-    s1set[0, gamescore] = 1
+    s1match.at[0, "0-0"] = 0
+    s1match.at[0, setscore] = 1
+    s1set.at[0, "0-0"] = 0
+    s1set.at[0, gamescore] = 1
 
     ans = prob_set(pwin1, pwin2, ptie1, s1set)
     ans = pd.DataFrame(data=ans, columns=col_row_names3)
@@ -481,10 +485,10 @@ def predict4(setscore, gamescore, pwin1, pwin2, ptie1, pset_v1, match_initial_st
     s1game = game_initial_state
     s1tb = tb_initial_state
 
-    s1match[0, "0-0"] = 0
-    s1match[0, setscore] = 1
-    s1set[0, "0-0"] = 0
-    s1set[0, gamescore] = 1
+    s1match.at[0, "0-0"] = 0
+    s1match.at[0, setscore] = 1
+    s1set.at[0, "0-0"] = 0
+    s1set.at[0, gamescore] = 1
 
     ans = prob_set(pwin1, pwin2, ptie1, s1set)
     ans = pd.DataFrame(data=ans, columns=col_row_names3)
@@ -514,10 +518,10 @@ def predict5(gamescore, pwin1, pwin2, ptie1, pset_v1, match_initial_state, set_i
 
     setscore = "2-2"
 
-    s1match[0, "0-0"] = 0
-    s1match[0, setscore] = 1
-    s1set[0, "0-0"] = 0
-    s1set[0, gamescore] = 1
+    s1match.at[0, "0-0"] = 0
+    s1match.at[0, setscore] = 1
+    s1set.at[0, "0-0"] = 0
+    s1set.at[0, gamescore] = 1
 
     ans = prob_set(pwin1, pwin2, ptie1, s1set)
     ans = pd.DataFrame(data=ans, columns=col_row_names3)
@@ -569,6 +573,6 @@ def tennis_model(ppoint_srv1, ppoint_srv2, setscore, gamescore, match_initial_st
 
     return ans
 
-
-ans = tennis_model(0.7, 0.6, "0-1", "0-3", match_initial_state, set_initial_sate, game_initial_state, tb_initial_state)
-print(ans)
+#
+# ans = tennis_model(0.6, 0.6, "0-0", "0-0", match_initial_state, set_initial_sate, game_initial_state, tb_initial_state)
+# print(ans)
