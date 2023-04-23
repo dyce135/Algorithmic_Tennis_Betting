@@ -42,6 +42,127 @@ match_initial_state = pd.DataFrame(data=matrix, columns=col_row_names4)  #
 match_initial_state.at[0, "0-0"] = 1
 
 
+def set_nextscore(score, winner):
+    matrix = np.zeros((41, 41))
+    tMat3 = pd.DataFrame(data=matrix, index=col_row_names3, columns=col_row_names3)
+    tMat3.at["0-0", "1-0"] = 1
+    tMat3.at["2-0", "3-0"] = 1
+    tMat3.at["1-1", "2-1"] = 1
+    tMat3.at["0-2", "1-2"] = 1
+    tMat3.at["4-0", "5-0"] = 1
+    tMat3.at["3-1", "4-1"] = 1
+    tMat3.at["2-2", "3-2"] = 1
+    tMat3.at["1-3", "2-3"] = 1
+    tMat3.at["0-4", "1-4"] = 1
+    tMat3.at["5-1", "SETv1"] = 1
+    tMat3.at["4-2", "5-2"] = 1
+    tMat3.at["3-3", "4-3"] = 1
+    tMat3.at["2-4", "3-4"] = 1
+    tMat3.at["1-5", "2-5"] = 1
+    tMat3.at["5-3", "SETv1"] = 1
+    tMat3.at["4-4", "5-4"] = 1
+    tMat3.at["3-5", "4-5"] = 1
+    tMat3.at["5-5", "6-5"] = 1
+
+    tMat3.at["0-0", "0-1"] = -1
+    tMat3.at["2-0", "2-1"] = -1
+    tMat3.at["1-1", "1-2"] = -1
+    tMat3.at["0-2", "0-3"] = -1
+    tMat3.at["4-0", "4-1"] = -1
+    tMat3.at["3-1", "3-2"] = -1
+    tMat3.at["2-2", "2-3"] = -1
+    tMat3.at["1-3", "1-4"] = -1
+    tMat3.at["0-4", "0-5"] = -1
+    tMat3.at["5-1", "5-2"] = -1
+    tMat3.at["4-2", "4-3"] = -1
+    tMat3.at["3-3", "3-4"] = -1
+    tMat3.at["2-4", "2-5"] = -1
+    tMat3.at["1-5", "SETv2"] = -1
+    tMat3.at["5-3", "5-4"] = -1
+    tMat3.at["4-4", "4-5"] = -1
+    tMat3.at["3-5", "SETv2"] = -1
+    tMat3.at["5-5", "5-6"] = -1
+
+    tMat3.at["1-0", "1-1"] = -1
+    tMat3.at["0-1", "0-2"] = -1
+    tMat3.at["3-0", "3-1"] = -1
+    tMat3.at["2-1", "2-2"] = -1
+    tMat3.at["1-2", "1-3"] = -1
+    tMat3.at["0-3", "0-4"] = -1
+    tMat3.at["5-0", "5-1"] = -1
+    tMat3.at["4-1", "4-2"] = -1
+    tMat3.at["3-2", "3-3"] = -1
+    tMat3.at["2-3", "2-4"] = -1
+    tMat3.at["1-4", "1-5"] = -1
+    tMat3.at["0-5", "SETv2"] = -1
+    tMat3.at["5-2", "5-3"] = -1
+    tMat3.at["4-3", "4-4"] = -1
+    tMat3.at["3-4", "3-5"] = -1
+    tMat3.at["2-5", "SETv2"] = -1
+    tMat3.at["5-4", "5-5"] = -1
+    tMat3.at["4-5", "SETv2"] = -1
+    tMat3.at["5-6", "SETv2"] = -1
+    tMat3.at["6-5", "6-6"] = -1
+
+    tMat3.at["1-0", "2-0"] = 1
+    tMat3.at["0-1", "1-1"] = 1
+    tMat3.at["3-0", "4-0"] = 1
+    tMat3.at["2-1", "3-1"] = 1
+    tMat3.at["1-2", "2-2"] = 1
+    tMat3.at["0-3", "1-3"] = 1
+    tMat3.at["5-0", "SETv1"] = 1
+    tMat3.at["4-1", "5-1"] = 1
+    tMat3.at["3-2", "4-2"] = 1
+    tMat3.at["2-3", "3-3"] = 1
+    tMat3.at["1-4", "2-4"] = 1
+    tMat3.at["0-5", "1-5"] = 1
+    tMat3.at["5-2", "SETv1"] = 1
+    tMat3.at["4-3", "5-3"] = 1
+    tMat3.at["3-4", "4-4"] = 1
+    tMat3.at["2-5", "3-5"] = 1
+    tMat3.at["5-4", "SETv1"] = 1
+    tMat3.at["4-5", "5-5"] = 1
+    tMat3.at["5-6", "6-6"] = 1
+    tMat3.at["6-5", "SETv1"] = 1
+
+    # Set tie-break cases
+    tMat3.at["6-6", "SETv1"] = 1
+    tMat3.at["6-6", "SETv2"] = -1
+
+    next_score = tMat3.columns[(tMat3 == winner).loc[score]]
+    next_score = next_score[0]
+
+    return next_score
+
+def match_nextscore(score, winner):
+    matrix = np.zeros((17, 17))
+    tMat4 = pd.DataFrame(data=matrix, index=col_row_names4, columns=col_row_names4)
+    tMat4.at["0-0", "1-0"] = 1
+    tMat4.at["1-0", "2-0"] = 1
+    tMat4.at["0-1", "1-1"] = 1
+    tMat4.at["1-1", "2-1"] = 1
+    tMat4.at["2-2", "3-2"] = 1
+    tMat4.at["1-2", "2-2"] = 1
+    tMat4.at["2-0", "3-0"] = 1
+    tMat4.at["0-2", "1-2"] = 1
+    tMat4.at["2-1", "3-1"] = 1
+
+    tMat4.at["0-0", "0-1"] = -1
+    tMat4.at["1-0", "1-1"] = -1
+    tMat4.at["0-1", "0-2"] = -1
+    tMat4.at["1-1", "1-2"] = -1
+    tMat4.at["2-2", "2-3"] = -1
+    tMat4.at["1-2", "1-3"] = -1
+    tMat4.at["2-0", "2-1"] = -1
+    tMat4.at["0-2", "0-3"] = -1
+    tMat4.at["2-1", "2-2"] = -1
+
+    next_score = tMat4.columns[(tMat4 == winner).loc[score]]
+    next_score = next_score[0]
+
+    return next_score
+
+
 def game_trans_matrix(ppoint_server):
     ppoint_ret = 1 - ppoint_server
     matrix = np.zeros((17, 17))
@@ -381,7 +502,6 @@ def prob_match(pset_v1, s_match):
     for i in range(1000):
         matrix = np.dot(matrix, matrix)
     matrix = pd.DataFrame(data=matrix, index=col_row_names4, columns=col_row_names4)
-    print(matrix)
     probs = np.dot(s_match, matrix)
     return probs
 
@@ -574,5 +694,5 @@ def tennis_model(ppoint_srv1, ppoint_srv2, setscore, gamescore, match_initial_st
     return ans
 
 #
-# ans = tennis_model(0.6, 0.6, "0-0", "0-0", match_initial_state, set_initial_sate, game_initial_state, tb_initial_state)
+# ans = tennis_model(0.66, 0.66, "0-0", "0-0", match_initial_state, set_initial_sate, game_initial_state, tb_initial_state)
 # print(ans)
