@@ -682,5 +682,5 @@ def initiate_markov_states():
 
 
 mis, sis, gis, tbis = initiate_markov_states()
-ans = tennis_model(0.688, 0.602, "2-2", "SETv2", mis, sis, gis, tbis)
+ans = tennis_model(0.6514, 0.6386, "1-1", "1-0", mis, sis, gis, tbis)
 print(ans)
