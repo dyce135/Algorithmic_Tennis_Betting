@@ -49,7 +49,7 @@ def get_score_time_series(p, q, df_odds, server):
         index=df_odds.index)
     df.iloc[i + 1:] = 0
     df.replace(to_replace=0, method='ffill', inplace=True)
-    df = df.resample('2000ms').last()
+    df = df.resample('2000ms').last().shift(int(- 360 / 2))
     df.replace(to_replace=np.nan, method='ffill', inplace=True)
 
     return df

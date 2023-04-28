@@ -7,7 +7,7 @@ import pandas as pd
 for i, file in enumerate(os.listdir('Wimbledon')):
     current_file = join('Wimbledon', file)
     print('Processing ' + current_file + '...')
-    data_list, runner_id, runner_id_2, r1_result, market_timestamp = P.get_data(file)
+    data_list, runner_id, runner_id_2, r1_result, market_timestamp = P.get_data(current_file)
 
     runner_list_1 = P.get_list(runner_id, data_list, market_timestamp)
     runner_list_2 = P.get_list(runner_id_2, data_list, market_timestamp)
@@ -39,3 +39,5 @@ for i, file in enumerate(os.listdir('Wimbledon')):
     df_total.to_csv(join('Data/', str(runner_id) + 'v' + str(runner_id_2) + '.csv'))
 
     print('Saved to ' + join('Data/', str(runner_id) + 'v' + str(runner_id_2) + '.csv'))
+
+quit()
