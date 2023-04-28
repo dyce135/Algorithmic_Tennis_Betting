@@ -3,6 +3,7 @@ import score_inference as score
 import os
 from os.path import join
 import pandas as pd
+import numpy as np
 
 for i, file in enumerate(os.listdir('Wimbledon')):
     current_file = join('Wimbledon', file)
@@ -19,7 +20,7 @@ for i, file in enumerate(os.listdir('Wimbledon')):
     r1, r2 = score.get_serve_prob(first_odds)
     r1 = r1.values[0]
     r2 = r2.values[0]
-    df_score = score.get_score_time_series(r1, r2, df['avg'], server=1)
+    df_score = score.get_score_time_series(r1, r2, df['avg'])
 
     start = df.first_valid_index()
     end = df.last_valid_index()
@@ -35,6 +36,7 @@ for i, file in enumerate(os.listdir('Wimbledon')):
                              'r1 pup': df_runner_1['pup'], 'r2 spread': df_runner_2['uncertainty'],
                              'r2 pup': df_runner_2['pup'], 'r1_setscore': 3 - df_score['r1_setscore'],
                              'r2_setscore': 3 - df_score['r2_setscore']}, index=df_odds.index)
+    df_total.replace(to_replace=np.nan, method='ffill', inplace=True)
 
     df_total.to_csv(join('Data/', str(runner_id) + 'v' + str(runner_id_2) + '.csv'))
 

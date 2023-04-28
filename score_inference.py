@@ -11,7 +11,7 @@ def get_serve_prob(first_odds):
     return r1, r2
 
 
-def get_score_time_series(p, q, df_odds, server):
+def get_score_time_series(p, q, df_odds):
     setscore = '0-0'
     gamescore = '0-0'
 
@@ -49,7 +49,8 @@ def get_score_time_series(p, q, df_odds, server):
         index=df_odds.index)
     df.iloc[i + 1:] = 0
     df.replace(to_replace=0, method='ffill', inplace=True)
-    df = df.resample('2000ms').last().shift(int(- 360 / 2))
+    df = df.resample('2000ms').last().shift(int(- 300 / 2))
+    df.replace(to_replace=np.nan, method='bfill', inplace=True)
     df.replace(to_replace=np.nan, method='ffill', inplace=True)
 
     return df

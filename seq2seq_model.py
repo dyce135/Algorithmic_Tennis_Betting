@@ -10,7 +10,7 @@ os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'
 os.environ['LD_LIBRARY_PATH'] = '$LD_LIBRARY_PATH:/opt/rocm-5.3.0/lib'
 
 
-def truncate(x, feature_cols=range(5), target_cols=range(5), train_len=825, test_len=165):
+def truncate(x, feature_cols=range(7), target_cols=range(7), train_len=825, test_len=165):
     in_, out_ = [], []
     for i in range(len(x) - train_len - test_len + 1):
         in_.append(x[i:(i + train_len), feature_cols].tolist())
