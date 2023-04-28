@@ -491,6 +491,7 @@ def tennis_model(ppoint_srv1, ppoint_srv2, setscore, gamescore, match_initial_st
     ans = pd.DataFrame(data=ans, columns=col_row_names3)
     temp3 = ans.at[0, "SETv1"]
 
+
     if (setscore == "0-0"):
         prob_entire_match = predict1(gamescore, temp, temp1, temp2, temp3, match_initial_state, set_initial_state,
                                      game_initial_state, tb_initial_state)
@@ -501,7 +502,12 @@ def tennis_model(ppoint_srv1, ppoint_srv2, setscore, gamescore, match_initial_st
         print("yes")
         prob_entire_match = predict2(setscore, gamescore, temp, temp1, temp2, temp3, match_initial_state,
                                      set_initial_state, game_initial_state, tb_initial_state)
-    return prob_entire_match
+
+    ans = pd.DataFrame(data=prob_entire_match, columns=col_row_names4)
+    ans['V1'] = ans['2-0'] + ans['2-1']
+    ans['V2'] = ans['0-2'] + ans['1-2']
+
+    return ans
 
 
 # ans = prob_game(0.7, game_initial_state)
