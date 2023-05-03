@@ -567,7 +567,6 @@ def predict2(setscore, gamescore, pwin1, pwin2, ptie1, pset_v1, match_initial_st
         s1match.at[0, "0-1"] = 0
 
     prob_entire_match = prob_match(pset_v1, s1match)
-    print("yes")
 
     return prob_entire_match
 
@@ -689,7 +688,6 @@ def tennis_model(player1_features, player2_features, setscore, gamescore, match_
         prob_entire_match = predict1(gamescore, temp, temp1, temp2, temp3, match_initial_state, set_initial_sate,
                                      game_initial_state, tb_initial_state)
     if setscore == "1-0" or setscore == "0-1":
-        print("yes")
         prob_entire_match = predict2(setscore, gamescore, temp, temp1, temp2, temp3, match_initial_state,
                                      set_initial_sate, game_initial_state, tb_initial_state)
     if setscore == "2-0" or setscore == "0-2" or setscore == "1-1":
@@ -724,25 +722,25 @@ def initiate_markov_states():
 
     return match_initial_state, set_initial_sate, game_initial_state, tb_initial_state
 
-
-mis, sis, gis, tbis = initiate_markov_states()
-player1_features = {
-        'server_points': 2,
-        'receiver_points': 1,
-        'recent_form': 0.5,
-        'average_rank_point_difference': 150,
-        'average_aces': 6,
-        'average_double_faults': 3,
-        'break_point_save_percentage': 0.5
-    }
-player2_features = {
-        'server_points': 2,
-        'receiver_points': 1,
-        'recent_form': 0.6,
-        'average_rank_point_difference': -150,
-        'average_aces': 3,
-        'average_double_faults': 5,
-        'break_point_save_percentage': 0.4
-    }
-ans = tennis_model(player1_features, player2_features, "0-2", "4-0", mis, sis, gis, tbis)
-print(ans)
+#
+# mis, sis, gis, tbis = initiate_markov_states()
+# player1_features = {
+#         'server_points': 0,
+#         'receiver_points': 0,
+#         'recent_form': 0.5,
+#         'average_rank_point_difference': 150,
+#         'average_aces': 6,
+#         'average_double_faults': 3,
+#         'break_point_save_percentage': 0.5
+#     }
+# player2_features = {
+#         'server_points': 0,
+#         'receiver_points': 0,
+#         'recent_form': 0.6,
+#         'average_rank_point_difference': -150,
+#         'average_aces': 3,
+#         'average_double_faults': 5,
+#         'break_point_save_percentage': 0.4
+#     }
+# ans = tennis_model(player1_features, player2_features, "0-2", "4-0", mis, sis, gis, tbis)
+# print(ans)

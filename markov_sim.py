@@ -681,6 +681,6 @@ def initiate_markov_states():
     return match_initial_state, set_initial_sate, game_initial_state, tb_initial_state
 
 
-# mis, sis, gis, tbis = initiate_markov_states()
-# ans = tennis_model(0.6514, 0.6386, "1-1", "1-0", mis, sis, gis, tbis)
-# print(ans)
+mis, sis, gis, tbis = initiate_markov_states()
+ans = tennis_model(0.6514, 0.6386, "2-2", "3-2", mis, sis, gis, tbis)
+print(ans)

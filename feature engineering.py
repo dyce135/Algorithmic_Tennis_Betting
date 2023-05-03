@@ -1,13 +1,19 @@
 import pandas as pd
 import itertools
+import warnings
+import os
+from os.path import join
+import json
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # Load the dataset
-data = pd.read_csv("atp_matches_2023.csv")
-data2 = pd.read_csv("atp_matches_2022.csv")
-data3 = pd.read_csv("atp_matches_2021.csv")
-data4 = pd.read_csv("atp_matches_2020.csv")
-data5 = pd.read_csv("atp_matches_2019.csv")
-data6 = pd.read_csv("atp_matches_2018.csv")
+# data = pd.read_csv("atp_matches_2023.csv")
+# data2 = pd.read_csv("atp_matches_2022.csv")
+# data3 = pd.read_csv("atp_matches_2021.csv")
+# data4 = pd.read_csv("atp_matches_2020.csv")
+# data5 = pd.read_csv("atp_matches_2019.csv")
+# data6 = pd.read_csv("atp_matches_2018.csv")
 data7 = pd.read_csv("atp_matches_2017.csv")
 data8 = pd.read_csv("atp_matches_2016.csv")
 data9 = pd.read_csv("atp_matches_2015.csv")
@@ -16,7 +22,8 @@ data11 = pd.read_csv("atp_matches_2013.csv")
 data12 = pd.read_csv("atp_matches_2012.csv")
 data13 = pd.read_csv("atp_matches_2011.csv")
 
-data = pd.concat([data, data2, data3,data4,data5,data6,data7,data8,data9,data10,data11,data12,data13])
+# data = pd.concat([data, data2, data3,data4,data5,data6,data7,data8,data9,data10,data11,data12,data13])
+data = pd.concat([data7,data8,data9,data10,data11,data12,data13])
 data.to_csv("combined_csv",index=False)
 
 
@@ -106,5 +113,8 @@ merged_dataset = pd.merge(combined_dataset, features_df, on='player_id')
 
 # Save the new features to a CSV file
 merged_dataset.to_csv("new_features.csv", index=False)
+
+print('saved')
+
 
 

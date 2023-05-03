@@ -17,10 +17,12 @@ def get_data(file):
 
     runner_id = top['mc'][0]['marketDefinition']['runners'][0]['id']
     runner_id_2 = top['mc'][0]['marketDefinition']['runners'][1]['id']
+    runner_name = top['mc'][0]['marketDefinition']['runners'][0]['name']
+    runner_name_2 = top['mc'][0]['marketDefinition']['runners'][1]['name']
     market_datetime = parser.parse(data_list[-1]['mc'][0]['marketDefinition']['marketTime'])
     r1_result = data_list[-1]['mc'][0]['marketDefinition']['runners'][0]['status']
     market_timestamp = datetime.timestamp(market_datetime) * 1000
-    return data_list, runner_id, runner_id_2, r1_result, market_timestamp
+    return data_list, runner_id, runner_id_2, runner_name, runner_name_2, r1_result, market_timestamp
 
 
 def get_list(runner_id, data_list, market_timestamp):
@@ -90,13 +92,13 @@ def odds_avg(runner_1, runner_2, r1_result):
     df['avg'] = df.mean(axis=1)
     df_avg_odds = df.resample('2000ms').last()
     last_index = df_avg_odds.last_valid_index() + pd.Timedelta(2, 'sec')
-    final_index = last_index + pd.Timedelta(12, 'sec')
+    final_index = last_index + pd.Timedelta(6, 'min')
     df_datetime = pd.date_range(last_index, final_index, freq='2000ms')
     if r1_result == 'WINNER':
-        df_ones = pd.DataFrame({'runner 1': np.ones(7), '1 - runner 2': np.ones(7), 'avg': np.ones(7)}, index=df_datetime)
+        df_ones = pd.DataFrame({'runner 1': np.ones(181), '1 - runner 2': np.ones(181), 'avg': np.ones(181)}, index=df_datetime)
         df_avg_odds = pd.concat([df_avg_odds, df_ones])
     else:
-        df_zeros = pd.DataFrame({'runner 1': np.zeros(7), '1 - runner 2': np.zeros(7), 'avg': np.zeros(7)}, index=df_datetime)
+        df_zeros = pd.DataFrame({'runner 1': np.zeros(181), '1 - runner 2': np.zeros(181), 'avg': np.zeros(181)}, index=df_datetime)
         df_avg_odds = pd.concat([df_avg_odds, df_zeros])
     return df_avg_odds
 
