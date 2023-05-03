@@ -27,22 +27,18 @@ def truncate(x, features=7, x_len=750, y_len=150):
     return np.array(input), np.array(output)
 
 
-def convlstm_seq2seq_fit(train, n_steps=3, n_length=90, features=7, features_list=range(1), epochs=10, batch_size=128, filters=64, lstm_dim=200, fc_dim=100, lr=0.0001):
+def convlstm_seq2seq_fit(train, n_steps=3, n_length=90, features=7, features_list=range(1), epochs=10, batch_size=50, lstm_dim=200, lstm_2_dim=200, fc_dim=10, lr=0.0001):
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features=features_list)
     n_timesteps, n_features, n_outputs = train_x.shape[1], train_x.shape[2], train_y.shape[1]
-    # reshape into subsequences [samples, time steps, rows, cols, channels]
-    train_x = train_x.reshape((train_x.shape[0], n_steps, 1, n_length, n_features))
-    # reshape output into [samples, timesteps, features]
-    train_y = train_y.reshape((train_y.shape[0], train_y.shape[1], train_y.shape[2]))
 
     # define model
     model = Sequential()
-    model.add(ConvLSTM2D(filters=filters, dropout=0.2, recurrent_dropout=0.2, kernel_size=(1, 3), activation='elu',
-                         input_shape=(n_steps, 1, n_length, n_features)))
-    model.add(Flatten())
+    model.add(LSTM(lstm_dim, dropout=0.2, recurrent_dropout=0.2, activation='elu',
+                         input_shape=(n_length * n_steps, n_features)))
+    model.add(BatchNormalization(momentum=0.4))
     model.add(RepeatVector(n_outputs))
-    model.add(LSTM(lstm_dim, dropout=0.2, recurrent_dropout=0.2, activation='elu', return_sequences=True))
+    model.add(LSTM(lstm_2_dim, dropout=0.2, recurrent_dropout=0.2, activation='elu', return_sequences=True))
     model.add(TimeDistributed(Dense(fc_dim, activation='relu')))
     model.add(TimeDistributed(Dense(features, activation='sigmoid')))
 
@@ -115,10 +111,10 @@ def make_forecast(model, history, n_steps=3, n_length=90, features=range(7)):
     data = data.reshape((data.shape[0] * data.shape[1], data.shape[2]))
     print(data.shape)
     # retrieve last observations for input data
-    input = data[-(n_steps * n_length):, features]
+    input = data[-(501 * n_steps * n_length):-(500 * n_steps * n_length), features]
+    input_x = input.reshape((1, input.shape[0], input.shape[1]))
     print(input.shape)
     # reshape into [samples, time steps, rows, cols, channels]
-    input_x = input.reshape((1, n_steps, 1, n_length, data.shape[1]))
     # forecast the next week
     yhat = model.predict(input_x, verbose=1)
     # we only want the vector forecast
