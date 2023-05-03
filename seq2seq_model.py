@@ -27,7 +27,7 @@ def truncate(x, features=7, x_len=750, y_len=150):
     return np.array(input), np.array(output)
 
 
-def convlstm_seq2seq_fit(train, n_steps=3, n_length=90, features=7, features_list=range(1), epochs=10, batch_size=50, lstm_dim=200, lstm_2_dim=200, fc_dim=10, lr=0.0001):
+def seq2seq_fit(train, n_steps=3, n_length=90, features=7, features_list=range(1), epochs=10, batch_size=50, lstm_dim=200, lstm_2_dim=200, fc_dim=10, lr=0.0001):
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features=features_list)
     n_timesteps, n_features, n_outputs = train_x.shape[1], train_x.shape[2], train_y.shape[1]
@@ -43,7 +43,7 @@ def convlstm_seq2seq_fit(train, n_steps=3, n_length=90, features=7, features_lis
     model.add(TimeDistributed(Dense(features, activation='sigmoid')))
 
     opt = keras.optimizers.Adam(learning_rate=lr)
-    model.compile(loss='mse', optimizer=opt, metrics='mae')
+    model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
     # fit network
     history = model.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, verbose=1)
 
@@ -61,7 +61,7 @@ def truncate_data(data, n_input=150 * 5, n_out=150, features=range(7)):
         out_end = in_end + n_out
         # ensure we have enough data for this instance
         if out_end <= len(data):
-            X.append(data[in_start:in_end, :])
+            X.append(data[in_start:in_end, [0, 5, 6]])
             y.append(data[in_end:out_end, features])
             # move along one time step
         in_start += 1
@@ -105,13 +105,13 @@ def evaluate_model(model, train, test, n_steps, n_length, n_input):
     return score, scores
 
 
-def make_forecast(model, history, n_steps=3, n_length=90, features=range(7)):
+def make_forecast(model, history, n_steps=3, n_length=90):
     # flatten data
     data = np.array(history)
     data = data.reshape((data.shape[0] * data.shape[1], data.shape[2]))
     print(data.shape)
     # retrieve last observations for input data
-    input = data[-(501 * n_steps * n_length):-(500 * n_steps * n_length), features]
+    input = data[-(501 * n_steps * n_length):-(500 * n_steps * n_length), :]
     input_x = input.reshape((1, input.shape[0], input.shape[1]))
     print(input.shape)
     # reshape into [samples, time steps, rows, cols, channels]
