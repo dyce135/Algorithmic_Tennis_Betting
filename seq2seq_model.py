@@ -25,7 +25,7 @@ def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=
     # define model
     encoder_in = Input(shape=(n_length * n_steps, n_features))
     encoder = LSTM(lstm_dim, dropout=0.2, recurrent_dropout=0.2, activation='tanh', return_state=True)
-    encoder_outputs, state_h, state_c = encoder(encoder_in)
+    state_h, encoder_outputs, state_c = encoder(encoder_in)
     # We discard `encoder_outputs` and only keep the states.
     state_h = BatchNormalization(momentum=0.3)(state_h)
     state_c = BatchNormalization(momentum=0.3)(state_c)
@@ -36,15 +36,6 @@ def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=
     fc_layer = TimeDistributed(Dense(fc_dim, activation='relu'))(decoder)
     out = TimeDistributed(Dense(features_out_num, activation='sigmoid'))(fc_layer)
     model = Model(inputs=encoder_in, outputs=out)
-
-    # model = Sequential()
-    # model.add(LSTM(lstm_dim, dropout=0.1, recurrent_dropout=0.1, activation='relu',
-    #                      input_shape=(n_length * n_steps, n_features)))
-    # model.add(BatchNormalization(momentum=0.4))
-    # model.add(RepeatVector(n_outputs))
-    # model.add(LSTM(lstm_2_dim, dropout=0.1, recurrent_dropout=0.1, activation='relu', return_sequences=True))
-    # model.add(TimeDistributed(Dense(fc_dim, activation='relu')))
-    # model.add(TimeDistributed(Dense(features_out, activation='sigmoid')))
 
     # compile model
     opt = keras.optimizers.Adam(learning_rate=lr)
@@ -118,7 +109,7 @@ def evaluate_model(model, train, test, n_steps, n_length, features=range(8)):
         # get real observation and add to history for predicting the next week
         history = np.append(history, test_node, axis=0)
         # evaluate predictions days for each week
-        model.fit()
+        # model.fit()
     predictions = np.array(predictions)
     predictions = predictions.squeeze()
     actual = test_arr[:, :, 0]
