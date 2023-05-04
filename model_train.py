@@ -8,13 +8,12 @@ import seq2seq_model
 from tensorflow.keras.models import load_model
 from matplotlib import pyplot as plt
 
-
 df = pd.read_csv('Data/4105819v2474763.csv', index_col=0)
 data = df.to_numpy()
 
 train, test = train_test_split(data, test_size=0.2, shuffle=False)
 
-model, history = seq2seq_model.seq2seq_fit(train, n_length=30, n_steps=3, features_list=range(1), features=1)
+model, history = seq2seq_model.seq2seq_fit(data, n_length=30, n_steps=3, features_out_num=1, features_in=range(8), features_out=range(1))
 model.summary()
 
 hist_df = pd.DataFrame(history.history)
