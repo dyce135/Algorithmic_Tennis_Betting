@@ -90,15 +90,15 @@ def odds_avg(runner_1, runner_2, r1_result):
     df.replace(0, np.nan, inplace=True)
     df.interpolate(method='time', limit_direction='both', inplace=True)
     df['avg'] = df.mean(axis=1)
-    df_avg_odds = df.resample('2000ms').last()
+    df_avg_odds = df.resample('5000ms').last()
     last_index = df_avg_odds.last_valid_index() + pd.Timedelta(2, 'sec')
     final_index = last_index + pd.Timedelta(6, 'min')
-    df_datetime = pd.date_range(last_index, final_index, freq='2000ms')
+    df_datetime = pd.date_range(last_index, final_index, freq='5000ms')
     if r1_result == 'WINNER':
-        df_ones = pd.DataFrame({'runner 1': np.ones(181), '1 - runner 2': np.ones(181), 'avg': np.ones(181)}, index=df_datetime)
+        df_ones = pd.DataFrame({'runner 1': np.ones(73), '1 - runner 2': np.ones(73), 'avg': np.ones(73)}, index=df_datetime)
         df_avg_odds = pd.concat([df_avg_odds, df_ones])
     else:
-        df_zeros = pd.DataFrame({'runner 1': np.zeros(181), '1 - runner 2': np.zeros(181), 'avg': np.zeros(181)}, index=df_datetime)
+        df_zeros = pd.DataFrame({'runner 1': np.zeros(73), '1 - runner 2': np.zeros(73), 'avg': np.zeros(73)}, index=df_datetime)
         df_avg_odds = pd.concat([df_avg_odds, df_zeros])
     return df_avg_odds
 
@@ -195,10 +195,10 @@ def best_available_df(runner_list, start, end):
     df.replace(0, np.nan, inplace=True)
     df.interpolate(method='time', limit_direction='both', inplace=True)
 
-    _2000ms = df.index.floor('2000ms')
-    idx_back = df.groupby(_2000ms)['back'].idxmin()
-    idx_lay = df.groupby(_2000ms)['lay'].idxmax()
-    df = df.resample('2000ms').mean().assign(back=df.loc[idx_back]['back'].values,
+    _5000ms = df.index.floor('5000ms')
+    idx_back = df.groupby(_5000ms)['back'].idxmin()
+    idx_lay = df.groupby(_5000ms)['lay'].idxmax()
+    df = df.resample('5000ms').mean().assign(back=df.loc[idx_back]['back'].values,
                                             back_vol=df.loc[idx_back]['back_vol'].values,
                                             lay=df.loc[idx_lay]['lay'].values,
                                             lay_vol=df.loc[idx_lay]['lay_vol'].values)
@@ -207,7 +207,7 @@ def best_available_df(runner_list, start, end):
     df_best = df_best.loc[start:end]
     # last_index = end + pd.Timedelta(1, 'sec')
     # final_index = last_index + pd.Timedelta(59, 'sec')
-    # df_datetime_new = pd.date_range(last_index, final_index, freq='2000ms')
+    # df_datetime_new = pd.date_range(last_index, final_index, freq='5000ms')
     # print(end, last_index)
     # if r1_result == 'WINNER':
     #     df_ones = pd.DataFrame({'back': np.repeat(1000, 60), 'back_vol': np.zeros(60), 'lay': np.repeat(1000, 60), 'lay_vol': np.repeat(0.001, 60)}, index=df_datetime_new)
