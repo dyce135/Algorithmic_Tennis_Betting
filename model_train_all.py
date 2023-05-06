@@ -28,7 +28,7 @@ lr = 0.0001
 
 df = pd.read_csv(join('./Data/Train', train_list[0]), index_col=0)
 data = df.to_numpy()
-model = seq2seq_model.seq2seq_compile(data, n_length=n_length, n_steps=n_steps, features_out_num=features_out_num, features_in=features_in, features_out=features_out, lr=lr)
+model = seq2seq_model.lstm_compile(data, n_length=n_length, n_steps=n_steps, features_out_num=features_out_num, features_in=features_in, features_out=features_out, lr=lr)
 
 for file in train_list:
     print('Fitting ', file)

@@ -5,6 +5,7 @@ from os.path import join
 import pandas as pd
 import numpy as np
 import warnings
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -34,8 +35,12 @@ for i, file in enumerate(os.listdir('Wimbledon')):
          'match_score': np.repeat(420, 5), 'enhanced_markov_odds': np.repeat(420, 5)}, index=index_extend_markov)
     df_markov_data = pd.concat([df_markov, df_zeros], axis=0)
     df_markov_data.replace(420, method='ffill', inplace=True)
-    df_markov_data = df_markov_data.resample('2000ms').last()
+    df_markov_data = df_markov_data.resample('5000ms').last()
     df_markov_data.replace(np.nan, method='ffill', inplace=True)
+    df_markov_data['enhanced_markov_odds'] = df_markov_data['enhanced_markov_odds'].mask(df_markov_data['enhanced_markov_odds'] > 1, 1)
+    df_markov_data['enhanced_markov_odds'] = df_markov_data['enhanced_markov_odds'].mask(df_markov_data['enhanced_markov_odds'] < 0, 0)
+    df_markov_data['markov_odds'] = df_markov_data['markov_odds'].mask(df_markov_data['markov_odds'] > 1, 1)
+    df_markov_data['markov_odds'] = df_markov_data['markov_odds'].mask(df_markov_data['markov_odds'] < 0, 0)
     df_markov_data = df_markov_data[start:end]
 
     df_runner_1 = P.best_available_df(runner_list_1, start, end)
@@ -70,9 +75,20 @@ for i, file in enumerate(os.listdir('Wimbledon')):
         df_r2_stw = df_zeros_score.join(df_r2_stw)
     df_r2_stw.columns = ['r2_0', 'r2_1', 'r2_2', 'r2_3']
 
-    df_total = pd.DataFrame({'lpt odds': df_odds['ltp odds'], 'r1 spread': df_runner_1['uncertainty'],
+    df_total = pd.DataFrame({'ltp odds': df_odds['ltp odds'], 'r1 spread': df_runner_1['uncertainty'],
                               'r1 pup': df_runner_1['pup'], 'r2 spread': df_runner_2['uncertainty'], 
                               'r2 pup': df_runner_2['pup'], 'enhanced_markov': df_markov_data['enhanced_markov_odds']}, index=df_odds.index)
+    
+    # standard = StandardScaler() 
+    # minmax = MinMaxScaler()
+
+    # df_total['ltp odds'] = standard.fit_transform(np.array(df_total['ltp odds']).reshape((-1, 1)))
+    # df_total['enhanced markov'] = standard.fit_transform(np.array(df_total['enhanced_markov']).reshape((-1, 1)))
+    # df_total['r1 spread'] = minmax.fit_transform(np.array(df_total['r1 spread']).reshape((-1, 1)))
+    # df_total['r2 spread'] = minmax.fit_transform(np.array(df_total['r2 spread']).reshape((-1, 1)))
+    # df_total['r1 pup'] = standard.fit_transform(np.array(df_total['r1 pup']).reshape((-1, 1)))
+    # df_total['r2 pup'] = standard.fit_transform(np.array(df_total['r2 pup']).reshape((-1, 1)))
+
     df_total = df_total.join(df_r1_stw)
     df_total = df_total.join(df_r2_stw)
 

@@ -202,19 +202,8 @@ def best_available_df(runner_list, start, end):
                                             back_vol=df.loc[idx_back]['back_vol'].values,
                                             lay=df.loc[idx_lay]['lay'].values,
                                             lay_vol=df.loc[idx_lay]['lay_vol'].values)
-
-    df_best = df.rolling('60S').mean()
-    df_best = df_best.loc[start:end]
-    # last_index = end + pd.Timedelta(1, 'sec')
-    # final_index = last_index + pd.Timedelta(59, 'sec')
-    # df_datetime_new = pd.date_range(last_index, final_index, freq='5000ms')
-    # print(end, last_index)
-    # if r1_result == 'WINNER':
-    #     df_ones = pd.DataFrame({'back': np.repeat(1000, 60), 'back_vol': np.zeros(60), 'lay': np.repeat(1000, 60), 'lay_vol': np.repeat(0.001, 60)}, index=df_datetime_new)
-    #     df_best = pd.concat([df_best, df_ones])
-    # else:
-    #     df_zeros = pd.DataFrame({'back': np.ones(60), 'back_vol': np.zeros(60), 'lay': np.ones(60), 'lay_vol': np.repeat(0.001, 60)}, index=df_datetime_new)
-    #     df_best = pd.concat([df, df_zeros])
+    df_best = df
+    
     df_best['back-lay avg'] = df_best[['back', 'lay']].mean(axis=1)
     df_best['spread'] = df_best['back'] - df_best['lay']
     df_best['vol diff'] = df_best['back_vol'] - df_best['lay_vol']
@@ -222,6 +211,10 @@ def best_available_df(runner_list, start, end):
     df_pup = df_best['back_vol'] / ( df_best['back_vol'] + df_best['lay_vol'] )
     df_pup.name = 'pup'
     df_best = pd.concat([df_best, df_pup], axis=1)
+    m = int(660 / 5 + 1)
+    df_best = df_best.rolling(m).mean().shift(int(- (m - 1) / 2))
     df_best.fillna(method='ffill', inplace=True)
+    df_best.fillna(method='bfill', inplace=True)
+    df_best = df_best.loc[start:end]
 
     return df_best

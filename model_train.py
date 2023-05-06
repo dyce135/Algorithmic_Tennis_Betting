@@ -14,7 +14,7 @@ data = df.to_numpy()
 train, test = train_test_split(data, test_size=0.4, shuffle=False)
 
 # model, history = seq2seq_model.seq2seq_fit(data, n_length=60, n_steps=3, features_out_num=1, features_in=range(8), features_out=range(1), epochs=10, fc_dim=20)
-model, history = seq2seq_model.lstm_fit(data, features_in=range(8), features_out_num=8, features_out=range(8), n_steps=60, epochs=30)
+model, history = seq2seq_model.lstm_fit(data, features_in=[0,5,6,7,8,9,10,11,12,13], features_out_num=10, features_out=[0,5,6,7,8,9,10,11,12,13], n_steps=36, epochs=40)
 model.summary()
 
 hist_df = pd.DataFrame(history.history)

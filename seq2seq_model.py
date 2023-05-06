@@ -23,9 +23,9 @@ os.environ['PATH'] = '{$CUDA_HOME}/bin:{$PATH}'
 os.environ['LD_LIBRARY_PATH'] = '{$CUDA_HOME}/lib64:{$CUDNN_HOME}/lib64:{$LD_LIBRARY_PATH}'
 
 
-def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=16, lstm_dim_1=100, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+    # Vanilla LSTM Model - single step output
     train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
-    print(train_x.shape, train_y.shape)
     model = Sequential()
     model.add(LSTM(lstm_dim_1, activation='tanh', return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(LSTM(lstm_dim_2, activation='tanh', return_sequences=False))
@@ -39,21 +39,37 @@ def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), feat
     return model, history
 
 
+def lstm_compile(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+    # Vanilla LSTM Model - single step output
+    train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
+    model = Sequential()
+    model.add(LSTM(lstm_dim_1, activation='tanh', return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(LSTM(lstm_dim_2, activation='tanh', return_sequences=False))
+    model.add(Dense(fc_dim, activation='relu'))
+    model.add(Dense(features_out_num, activation='sigmoid'))
+    model.summary()
+    opt = keras.optimizers.Adam(learning_rate=lr)
+    model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
+
+    return model
+
+
 def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=50, lstm_dim=100, lstm_2_dim=100, fc_dim=20, lr=0.0001):
+    # Sequence to sequence LSTM model - multi-step output
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features_in=features_in, features_out=features_out)
     n_timesteps, n_features, n_outputs = train_x.shape[1], train_x.shape[2], train_y.shape[1]
     print(train_x.shape)
     # define model
     encoder_in = Input(shape=(n_length * n_steps, n_features))
-    encoder = LSTM(lstm_dim, dropout=0.2, recurrent_dropout=0.2, activation='elu', return_state=True)
+    encoder = LSTM(lstm_dim, activation='elu', return_state=True)
     state_h, encoder_outputs, state_c = encoder(encoder_in)
     # We discard `encoder_outputs` and only keep the states.
     state_h = BatchNormalization(momentum=0.2)(state_h)
     state_c = BatchNormalization(momentum=0.2)(state_c)
     encoder_states = [state_h, state_c]
     decoder = RepeatVector(train_y.shape[1])(state_h)
-    decoder = LSTM(lstm_2_dim, activation='elu', dropout=0.2, recurrent_dropout=0.2, return_state=False,
+    decoder = LSTM(lstm_2_dim, activation='elu', return_state=False,
                    return_sequences=True)(decoder, initial_state=encoder_states)
     fc_layer = TimeDistributed(Dense(fc_dim, activation='relu'))(decoder)
     out = TimeDistributed(Dense(features_out_num, activation='sigmoid'))(fc_layer)
@@ -69,6 +85,7 @@ def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=
 
 
 def seq2seq_compile(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), lstm_dim=200, lstm_2_dim=200, fc_dim=20, lr=0.0001):
+    # Compile only - no training
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features_in=features_in, features_out=features_out)
     n_timesteps, n_features, n_outputs = train_x.shape[1], train_x.shape[2], train_y.shape[1]
@@ -137,7 +154,7 @@ def truncate_single_step(data, n_steps=128, features_in=range(8), features_out=r
 
 def evaluate_forecasts(actual, predicted):
     scores = []
-    # calculate an RMSE score for each day
+    # calculate an RMSE score for time step
     for i in range(actual.shape[1]):
         # calculate mse
         mse = mean_squared_error(actual[:, i], predicted[:, i])
@@ -213,7 +230,7 @@ def make_forecast(model, history, n_steps, n_length):
     input = data[-(n_steps * n_length):, :]
     input_x = input.reshape((1, input.shape[0], input.shape[1]))
     # reshape into [samples, time steps, rows, cols, channels]
-    # forecast the next week
+    # forecast the batch
     yhat = model.predict(input_x, verbose=1)
     # we only want the vector forecast
     yhat = yhat[0]
