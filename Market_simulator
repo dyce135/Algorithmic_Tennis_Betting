@@ -1,70 +1,111 @@
-import random
 import json
-from scipy.stats import beta
+import time
+from marketmaker2 import MarketMaker
 
-# Read JSON file and load data
-with open('betfair_data.json', 'r') as file:
-    data = json.load(file)
+def json_file_generator(json_file):
+    with open(json_file, 'r') as file:
+        for line in file:
+            yield json.loads(line)
 
-class BayesianBettingMarket:
-    def __init__(self, data):
-        self.match_id = data["match_id"]
-        self.players = data["players"]
-        self.new_information = data["new_information"]
+def load_and_process_json_data(json_file):
+    json_data_gen = json_file_generator(json_file)
 
-    def update_odds(self):
-        for player in self.players:
-            prior_alpha, prior_beta = player["prior"]
-            new_wins = self.new_information[player["name"]]["wins"]
-            new_losses = self.new_information[player["name"]]["losses"]
+    market_definitions = None
+    runners = None
 
-            updated_alpha = prior_alpha + new_wins
-            updated_beta = prior_beta + new_losses
+    for entry in json_data_gen:
+        if 'marketDefinition' in entry['mc'][0]:
+            market_definitions = entry['mc'][0]['marketDefinition']
+            runners = market_definitions['runners']
+            break
 
-            updated_distribution = beta(updated_alpha, updated_beta)
-            player["odds"] = updated_distribution.mean()
+    return market_definitions, runners
 
-    def simulate_market(self, duration, num_bettors):
-        self.update_odds()
-        results = []
 
-        for t in range(duration):
-            bettors = self.generate_bettors(num_bettors)
-            market_snapshot = {
-                "time": t,
-                "bets": bettors,
-            }
-            results.append(market_snapshot)
 
-        return results
+class SimulatedMarket:
+    def __init__(self, market_definition, runners):
+        self.market_definition = market_definition
+        self.runners = runners
+        self.odds = {runner["id"]: {"back": [], "lay": []} for runner in runners}
+        self.market_data = []
 
-    def generate_bettors(self, num_bettors):
-        bettors = []
+    def update_odds(self, runner_id, odds, side):
+        self.odds[runner_id][side] = odds
 
-        for _ in range(num_bettors):
-            bettor = {
-                "player": self.select_player(),
-                "stake": random.uniform(1, 100),
-            }
-            bettors.append(bettor)
+    def display_market(self):
+        print("Market:", self.market_definition["name"])
+        for runner in self.runners:
+            print(runner["name"])
+            print("Back:", self.odds[runner["id"]]["back"])
+            print("Lay:", self.odds[runner["id"]]["lay"])
+            print()
 
-        return bettors
+    def process_odds_data(self, odds_update):
+        snapshot = {"bets": []}
+        for item in odds_update:
+            runner_id = item["id"]
+            if "atb" in item:
+                self.update_odds(runner_id, item["atb"], side="back")
+            if "atl" in item:
+                self.update_odds(runner_id, item["atl"], side="lay")
+            snapshot["bets"].append({"id": runner_id, "odds": self.odds[runner_id]})
+        self.market_data.append(snapshot)
 
-    def select_player(self):
-        total_odds = sum([player["odds"] for player in self.players])
-        selection = random.uniform(0, total_odds)
+    def place_order(self, runner_id, price, side,order_size):
+        if side == "back":
+            current_best_back = self.odds[runner_id]["back"][0][0] if self.odds[runner_id]["back"] else 0
+            if price > current_best_back:
+                self.odds[runner_id]["back"].insert(0, [price, 1])
+            else:
+                self.odds[runner_id]["back"].append([price, 1])
+        elif side == "lay":
+            current_best_lay = self.odds[runner_id]["lay"][0][0] if self.odds[runner_id]["lay"] else float("inf")
+            if price < current_best_lay:
+                self.odds[runner_id]["lay"].insert(0, [price, 1])
+            else:
+                self.odds[runner_id]["lay"].append([price, 1])
+        return {"price": price, "size": order_size}
 
-        for player in self.players:
-            if selection < player["odds"]:
-                return player
-            selection -= player["odds"]
+    def simulate_real_time_market(self, market_maker, json_file, delay=1):
+        json_data_gen = json_file_generator(json_file)
 
-# Initialize and simulate the Bayesian betting market
-market = BayesianBettingMarket(data)
-simulation_duration = 100
-num_bettors_per_round = 10
+        for entry in json_data_gen:
+            if 'marketDefinition' in entry['mc'][0]:
+                self.market_definition = entry['mc'][0]['marketDefinition']
+                self.runners = self.market_definition['runners']
 
-simulated_market = market.simulate_market(simulation_duration, num_bettors_per_round)
+            if 'rc' in entry['mc'][0]:
+                self.process_odds_data(entry['mc'][0]['rc'])
+                market_maker.place_bets()
+                self.display_market()
+                print("\n---\n")
+                time.sleep(delay)
 
-# Analyze the results
-analyze_market(simulated_market)
+# Use the function to load and process the JSON data
+market_definitions, runners = load_and_process_json_data("1.145385390.json")
+
+# Create an instance of the SimulatedMarket class using the loaded data
+market = SimulatedMarket(market_definitions, runners)
+
+
+# Create an instance of the MarketMaker class
+win_probabilities = {
+    4105819: 0.4,  # Runner 1 has a 60% chance of winning
+    2474763: 0.6   # Runner 2 has a 40% chance of winning
+}
+market_maker = MarketMaker(market,win_probabilities)
+
+# Simulate real-time market updates with a 1-second delay between each update
+market.simulate_real_time_market(market_maker, "1.145385390.json", delay=0.001)
+
+# Calculate the market maker's profit
+actual_outcome_id = 2474763  # Change this to the actual player ID of the match outcome
+profit = market_maker.calculate_profit(actual_outcome_id)
+
+import matplotlib.pyplot as plt
+plt.plot(market_maker.profits)
+plt.xlabel("Time step")
+plt.ylabel("Profit")
+plt.title("Market Maker's Profit Over Time")
+plt.show()
