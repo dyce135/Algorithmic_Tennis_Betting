@@ -42,11 +42,21 @@ for i, file in enumerate(os.listdir('Wimbledon')):
     df_odds = pd.concat([df_avg, df_blodds], axis=1)
     df_odds.columns = ['ltp odds', 'back lay odds']
 
-    df_total = pd.DataFrame(
-        {'lpt odds': df_odds['ltp odds'], 'r1 spread': df_runner_1['uncertainty'], 'r1 pup': df_runner_1['pup'],
-         'r2 spread': df_runner_2['uncertainty'], 'r2 pup': df_runner_2['pup'],
-         'r1_sets_to_win': 3 - df_markov_data['r1_setscore'], 'r2_sets_to_win': 3 - df_markov_data['r2_setscore'],
-         'enhanced_markov': df_markov_data['enhanced_markov_odds']}, index=df_odds.index)
+    df_r1_stw = pd.get_dummies(3 - df_markov_data['r1_setscore'], dtype=float)
+    if 0 not in df_r1_stw.columns:
+        df_zeros_score = pd.DataFrame({'0': np.zeros(df_r1_stw.shape[0])}, index=df_r1_stw.index)
+        df_r1_stw = df_zeros_score.join(df_r1_stw)
+    df_r1_stw.columns = ['r1_0', 'r1_1', 'r1_2', 'r1_3']
+    df_r2_stw = pd.get_dummies(3 - df_markov_data['r2_setscore'], dtype=float)
+    if 0 not in df_r2_stw.columns:
+        df_zeros_score = pd.DataFrame({'0': np.zeros(df_r2_stw.shape[0])}, index=df_r2_stw.index)
+        df_r2_stw = df_zeros_score.join(df_r2_stw)
+    df_r2_stw.columns = ['r2_0', 'r2_1', 'r2_2', 'r2_3']
+    df_total = pd.DataFrame({'lpt odds': df_odds['ltp odds'], 'r1 spread': df_runner_1['uncertainty'],
+                              'r1 pup': df_runner_1['pup'], 'r2 spread': df_runner_2['uncertainty'], 
+                              'r2 pup': df_runner_2['pup'], 'enhanced_markov': df_markov_data['enhanced_markov_odds']}, index=df_odds.index)
+    df_total = df_total.join(df_r1_stw)
+    df_total = df_total.join(df_r2_stw)
 
     df_total.replace(to_replace=np.nan, method='ffill', inplace=True)
     df_total.to_csv(join('Data/', str(runner_id) + 'v' + str(runner_id_2) + '.csv'))

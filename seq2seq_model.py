@@ -22,21 +22,38 @@ os.environ['CUDNN_HOME'] = '/apps/cuda/cudnn-8.5-cuda-11.7'
 os.environ['PATH'] = '{$CUDA_HOME}/bin:{$PATH}'
 os.environ['LD_LIBRARY_PATH'] = '{$CUDA_HOME}/lib64:{$CUDNN_HOME}/lib64:{$LD_LIBRARY_PATH}'
 
-def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=100, lstm_dim=200, lstm_2_dim=200, fc_dim=20, lr=0.0001):
+
+def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=16, lstm_dim_1=100, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+    train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
+    print(train_x.shape, train_y.shape)
+    model = Sequential()
+    model.add(LSTM(lstm_dim_1, activation='tanh', return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(LSTM(lstm_dim_2, activation='tanh', return_sequences=False))
+    model.add(Dense(fc_dim, activation='relu'))
+    model.add(Dense(features_out_num, activation='sigmoid'))
+    model.summary()
+    opt = keras.optimizers.Adam(learning_rate=lr)
+    model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
+    history = model.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, verbose=1)
+
+    return model, history
+
+
+def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=50, lstm_dim=100, lstm_2_dim=100, fc_dim=20, lr=0.0001):
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features_in=features_in, features_out=features_out)
     n_timesteps, n_features, n_outputs = train_x.shape[1], train_x.shape[2], train_y.shape[1]
     print(train_x.shape)
     # define model
     encoder_in = Input(shape=(n_length * n_steps, n_features))
-    encoder = LSTM(lstm_dim, dropout=0.2, recurrent_dropout=0.2, activation='tanh', return_state=True)
-    encoder_outputs, state_h, state_c = encoder(encoder_in)
+    encoder = LSTM(lstm_dim, dropout=0.2, recurrent_dropout=0.2, activation='elu', return_state=True)
+    state_h, encoder_outputs, state_c = encoder(encoder_in)
     # We discard `encoder_outputs` and only keep the states.
-    state_h = BatchNormalization(momentum=0.3)(state_h)
-    state_c = BatchNormalization(momentum=0.3)(state_c)
+    state_h = BatchNormalization(momentum=0.2)(state_h)
+    state_c = BatchNormalization(momentum=0.2)(state_c)
     encoder_states = [state_h, state_c]
     decoder = RepeatVector(train_y.shape[1])(state_h)
-    decoder = LSTM(lstm_2_dim, activation='tanh', dropout=0.2, recurrent_dropout=0.2, return_state=False,
+    decoder = LSTM(lstm_2_dim, activation='elu', dropout=0.2, recurrent_dropout=0.2, return_state=False,
                    return_sequences=True)(decoder, initial_state=encoder_states)
     fc_layer = TimeDistributed(Dense(fc_dim, activation='relu'))(decoder)
     out = TimeDistributed(Dense(features_out_num, activation='sigmoid'))(fc_layer)
@@ -96,6 +113,28 @@ def truncate_data(data, n_input=150 * 5, n_out=150, features_in=range(8), featur
     return np.array(X), np.array(y)
 
 
+
+# convert history into inputs and outputs
+def truncate_single_step(data, n_steps=128, features_in=range(8), features_out=range(1)):
+    X, y = [], []
+    in_start = 0
+    # step over the entire history one time step at a time
+    for _ in range(len(data)):
+        # define the end of the input sequence
+        in_end = in_start + n_steps
+        # ensure we have enough data for this instance
+        if in_end < len(data):
+            X.append(data[in_start:in_end, features_in])
+            y.append(data[in_end, features_out])
+            # move along one time step
+        in_start += 1
+    data_x = np.array(X)
+    # data_x = data_x.reshape((data_x.shape[0], data_x.shape[1], len(features_in)))
+    data_y = np.array(y)
+    # data_y = data_y.reshape((data_y.shape[0], data_y.shape[1], len(features_out)))
+    return data_x, data_y
+
+
 def evaluate_forecasts(actual, predicted):
     scores = []
     # calculate an RMSE score for each day
@@ -115,7 +154,7 @@ def evaluate_forecasts(actual, predicted):
     return score, scores
 
 
-def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, features=range(8), features_out_num=5, features_out=range(5), batch_size=50, initial_epochs=5, epochs=1, lr=0.0001):
+def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, features=range(8), features_out_num=5, features_out=range(5), batch_size=50, initial_epochs=5, epochs=1, lr=0.0001, batches_to_train=8):
     # history is the existing data
     print(train.shape, test.shape)
     tr_rem = train.shape[0] % n_length
@@ -133,15 +172,15 @@ def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, fea
     print(test_arr.shape, history.shape)
 
     # Transfer learning training of initial history
-    x = model.get_layer('time_distributed').output
-    out = TimeDistributed(Dense(features_out_num, activation='sigmoid'), name='td_dense_out')(x)
-    model = keras.models.Model(inputs=model.input, outputs=out)
-    opt = keras.optimizers.Adam(learning_rate=lr)
-    model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
-    train_hist = history.reshape((n_length * history.shape[0], features_in_num))
-    train_x, train_y = truncate_data(train_hist, n_steps * n_length, n_length, features_out=features_out)
-    model.fit(train_x, train_y, epochs=initial_epochs, batch_size=batch_size, verbose=1)
-    model.reset_states()
+    # x = model.get_layer('time_distributed').output
+    # out = TimeDistributed(Dense(features_out_num, activation='sigmoid'), name='td_dense_out')(x)
+    # model = keras.models.Model(inputs=model.input, outputs=out)
+    # opt = keras.optimizers.Adam(learning_rate=lr)
+    # model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
+    # train_hist = history.reshape((n_length * history.shape[0], features_in_num))
+    # train_x, train_y = truncate_data(train_hist, n_steps * n_length, n_length, features_out=features_out)
+    # model.fit(train_x, train_y, epochs=initial_epochs, batch_size=batch_size, verbose=1)
+    # model.reset_states()
 
     for i in range(test_arr.shape[0]):
         # predict the next odds 
@@ -151,12 +190,13 @@ def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, fea
         test_node = test_arr[i, :, :].reshape(1, test_arr.shape[1], test_arr.shape[2])
         # get real observation and add to history for predicting the next batch
         history = np.append(history, test_node, axis=0)
-        # evaluate predictions days for each batch
-        train_hist = history.reshape((n_length * history.shape[0], features_in_num))
-        train_x, train_y = truncate_data(train_hist, n_steps * n_length, n_length, features_out=features_out)
-        model.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, verbose=1)
-        model.reset_states()
-        
+        # evaluate predictions days for each batch every x batches
+        # if i % batches_to_train == 0:
+        #     train_hist = history.reshape((n_length * history.shape[0], features_in_num))
+        #     train_x, train_y = truncate_data(train_hist, n_steps * n_length, n_length, features_out=features_out)
+        #     model.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, verbose=1)
+        #     model.reset_states()
+
     predictions = np.array(predictions)
     predictions = predictions.squeeze()
     actual = test_arr[:, :, 0]
@@ -177,6 +217,6 @@ def make_forecast(model, history, n_steps, n_length):
     yhat = model.predict(input_x, verbose=1)
     # we only want the vector forecast
     yhat = yhat[0]
-    y = np.concatenate((input[:, 0], yhat[:,0]))
+    # y = np.concatenate((input[:, 0], yhat[:,0]))
     # plt.plot(y)
     return yhat
