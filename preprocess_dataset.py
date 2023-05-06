@@ -4,6 +4,10 @@ import os
 from os.path import join
 import pandas as pd
 import numpy as np
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 
 for i, file in enumerate(os.listdir('Wimbledon')):
     current_file = join('Wimbledon', file)
@@ -51,6 +55,7 @@ for i, file in enumerate(os.listdir('Wimbledon')):
     if 0 not in df_r2_stw.columns:
         df_zeros_score = pd.DataFrame({'0': np.zeros(df_r2_stw.shape[0])}, index=df_r2_stw.index)
         df_r2_stw = df_zeros_score.join(df_r2_stw)
+    print(df_r2_stw.head())
     df_r2_stw.columns = ['r2_0', 'r2_1', 'r2_2', 'r2_3']
     df_total = pd.DataFrame({'lpt odds': df_odds['ltp odds'], 'r1 spread': df_runner_1['uncertainty'],
                               'r1 pup': df_runner_1['pup'], 'r2 spread': df_runner_2['uncertainty'], 
