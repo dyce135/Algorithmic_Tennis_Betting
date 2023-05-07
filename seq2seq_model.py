@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import LSTM, GRU, RepeatVector, Dense, TimeDistributed, Input, BatchNormalization, \
-    ConvLSTM2D, Flatten
+    ConvLSTM2D, Flatten, Activation, Dot, concatenate
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error
@@ -29,7 +29,7 @@ def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), feat
     model = Sequential()
     model.add(LSTM(lstm_dim_1, activation='tanh', return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(LSTM(lstm_dim_2, activation='tanh', return_sequences=False))
-    model.add(Dense(fc_dim, activation='relu'))
+    model.add(Dense(fc_dim, activation='elu'))
     model.add(Dense(features_out_num, activation='sigmoid'))
     model.summary()
     opt = keras.optimizers.Adam(learning_rate=lr)
@@ -39,7 +39,7 @@ def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), feat
     return model, history
 
 
-def lstm_compile(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+def lstm_model(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
     # Vanilla LSTM Model - single step output
     train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
     model = Sequential()
@@ -54,7 +54,7 @@ def lstm_compile(train, n_steps=128, features_out_num=1, features_out=range(1), 
     return model
 
 
-def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=50, lstm_dim=100, lstm_2_dim=100, fc_dim=20, lr=0.0001):
+def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=50, lstm_dim=300, lstm_2_dim=300, fc_dim=20, lr=0.0001):
     # Sequence to sequence LSTM model - multi-step output
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features_in=features_in, features_out=features_out)
@@ -62,16 +62,24 @@ def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=
     print(train_x.shape)
     # define model
     encoder_in = Input(shape=(n_length * n_steps, n_features))
-    encoder = LSTM(lstm_dim, activation='elu', return_state=True)
-    state_h, encoder_outputs, state_c = encoder(encoder_in)
+    encoder = LSTM(lstm_dim, activation='tanh', return_state=True, return_sequences=True)
+    encoder_outputs, state_h, state_c = encoder(encoder_in)
     # We discard `encoder_outputs` and only keep the states.
-    state_h = BatchNormalization(momentum=0.2)(state_h)
-    state_c = BatchNormalization(momentum=0.2)(state_c)
+    # state_h = BatchNormalization(momentum=0.2)(state_h)
+    # state_c = BatchNormalization(momentum=0.2)(state_c)
     encoder_states = [state_h, state_c]
-    decoder = RepeatVector(train_y.shape[1])(state_h)
-    decoder = LSTM(lstm_2_dim, activation='elu', return_state=False,
-                   return_sequences=True)(decoder, initial_state=encoder_states)
-    fc_layer = TimeDistributed(Dense(fc_dim, activation='relu'))(decoder)
+    decoder_in = RepeatVector(train_y.shape[1])(state_h)
+    decoder = LSTM(lstm_2_dim, activation='tanh', return_state=False,
+                   return_sequences=True)(decoder_in, initial_state=encoder_states)
+    
+    # print(decoder.shape, encoder_outputs.shape)
+    # attention = Dot(axes=[2, 2])([decoder, encoder_outputs])
+    # attention = Activation('softmax')(attention)
+    # context = Dot(axes=[2,1])([attention, encoder_outputs])
+    # context = BatchNormalization(momentum=0.2)(context)
+    # decoder_combined_context = concatenate([context, decoder])
+
+    fc_layer = Dense(fc_dim, activation='elu')(decoder)
     out = TimeDistributed(Dense(features_out_num, activation='sigmoid'))(fc_layer)
     model = Model(inputs=encoder_in, outputs=out)
 
@@ -177,6 +185,7 @@ def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, fea
     tr_rem = train.shape[0] % n_length
     if tr_rem != 0:
         train = train[tr_rem:]
+    train = train[:, features]
     history = train.reshape(int(train.shape[0] / n_length), n_length, features_in_num)
     history = history[:, :, features]
     # walk-forward validation over each fixed interval
@@ -184,8 +193,8 @@ def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, fea
     if ts_rem != 0:
         test = test[:-ts_rem]
     predictions = []
+    test = test[:, features_out]
     test_arr = test.reshape(int(test.shape[0] / n_length), n_length, features_in_num)
-    test_arr = test_arr[:, :, features]
     print(test_arr.shape, history.shape)
 
     # Transfer learning training of initial history
@@ -216,7 +225,11 @@ def evaluate_model(model, train, test, n_steps, n_length, features_in_num=8, fea
 
     predictions = np.array(predictions)
     predictions = predictions.squeeze()
-    actual = test_arr[:, :, 0]
+    actual = test_arr
+    if predictions.ndim == 3:
+        predictions = predictions[:, :, 0]
+    if actual.ndim == 3:
+        actual = test_arr[:, :, 0]
     print(actual.shape, predictions.shape)
     score, scores = evaluate_forecasts(actual, predictions)
     return score, scores, actual, predictions

@@ -17,18 +17,19 @@ from random import shuffle
 train_list = os.listdir('./Data/Train')
 shuffle(train_list)
 
-n_length = 60
-n_steps = 3
-features_in = range(8) 
-features_out = range(1)
-features_out_num = 1
+n_length = 36
+n_steps = 1
+features_in = range(14) 
+features_out = range(14)
+features_out_num = 14
 epochs=10
 batch_size=50
 lr = 0.0001
 
 df = pd.read_csv(join('./Data/Train', train_list[0]), index_col=0)
 data = df.to_numpy()
-model = seq2seq_model.lstm_compile(data, n_length=n_length, n_steps=n_steps, features_out_num=features_out_num, features_in=features_in, features_out=features_out, lr=lr)
+model = seq2seq_model.lstm_compile(data, n_steps=n_length, features_out_num=features_out_num, 
+                                   features_in=features_in, features_out=features_out, lr=lr)
 
 for file in train_list:
     print('Fitting ', file)
@@ -36,13 +37,14 @@ for file in train_list:
     df = pd.read_csv(join('./Data/Train', file), index_col=0)
     data = df.to_numpy()
     
-    train_x, train_y = seq2seq_model.truncate_data(data, n_length*n_steps, n_length, features_in=features_in, features_out=features_out)
-    x = model.get_layer('time_distributed').output
-    x = TimeDistributed(Dense(features_out_num, activation='sigmoid'))(x)
+    train_x, train_y = seq2seq_model.truncate_single_step(data, n_steps=n_length, features_in=features_in, features_out=features_out)
+    x = model.get_layer('lstm_2').output
+    x = Dense(features_out_num, activation='sigmoid')(x)
     model = keras.models.Model(inputs=model.input, outputs=x)
     
     opt = keras.optimizers.Adam(learning_rate=lr)
     model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
+    # print(model.get_layer('lstm').get_weights())
     history = model.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, verbose=1)
 
     hist_df = pd.DataFrame(history.history)
