@@ -2,12 +2,15 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import LSTM, GRU, RepeatVector, Dense, TimeDistributed, Input, BatchNormalization, \
-    ConvLSTM2D, Flatten, Activation, Dot, concatenate
+    ConvLSTM2D, Flatten, Activation, Dot, concatenate, Bidirectional, Add
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error
 import numpy as np
+import tsaug
+from tsaug import TimeWarp, Crop, Quantize, Drift, Reverse
 import os
+import random
 
 keras = tf.keras
 
@@ -23,18 +26,21 @@ os.environ['PATH'] = '{$CUDA_HOME}/bin:{$PATH}'
 os.environ['LD_LIBRARY_PATH'] = '{$CUDA_HOME}/lib64:{$CUDNN_HOME}/lib64:{$LD_LIBRARY_PATH}'
 
 
-def lstm_fit(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+def lstm_fit(train, val, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
     # Vanilla LSTM Model - single step output
     train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
+    val_x, val_y = truncate_single_step(val, n_steps, features_in=features_in, features_out=features_out)
     model = Sequential()
     model.add(LSTM(lstm_dim_1, activation='tanh', return_sequences=True, input_shape=(train_x.shape[1], train_x.shape[2])))
     model.add(LSTM(lstm_dim_2, activation='tanh', return_sequences=False))
     model.add(Dense(fc_dim, activation='elu'))
     model.add(Dense(features_out_num, activation='sigmoid'))
     model.summary()
+
     opt = keras.optimizers.Adam(learning_rate=lr)
+    es = EarlyStopping(monitor='val_loss', verbose=1, patience=20, restore_best_weights=True)
     model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
-    history = model.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, verbose=1)
+    history = model.fit(train_x, train_y, validation_data=(val_x, val_y), epochs=epochs, batch_size=batch_size, verbose=1, callbacks=es)
 
     return model, history
 
@@ -54,7 +60,26 @@ def lstm_model(train, n_steps=128, features_out_num=1, features_out=range(1), fe
     return model
 
 
-def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=50, lstm_dim=300, lstm_2_dim=300, fc_dim=20, lr=0.0001):
+def bidirectional(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=16, lstm_dim_1=64, lstm_dim_2=64, lstm_dim_3=32, batch_size=16, epochs=20, lr=0.0001):
+    # Vanilla LSTM Model - single step output
+    train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
+
+    model = Sequential()
+    model.add(Input(shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(Bidirectional(LSTM(lstm_dim_1, return_sequences=True)))
+    model.add(LSTM(lstm_dim_2, activation='tanh', return_sequences=True))
+    model.add(LSTM(lstm_dim_3, activation='tanh', return_sequences=False))
+    model.add(Dense(fc_dim, activation='relu'))
+    model.add(Dense(features_out_num, activation='sigmoid'))
+
+    model.summary()
+    opt = keras.optimizers.Adam(learning_rate=lr)
+    model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])
+
+    return model
+
+
+def seq2seq_fit(train, val, n_steps=3, n_length=90, features_out_num=1, features_out=range(1), features_in=range(8), epochs=10, batch_size=50, lstm_dim=300, lstm_2_dim=300, fc_dim=20, lr=0.0001):
     # Sequence to sequence LSTM model - multi-step output
     # prepare data
     train_x, train_y = truncate_data(train, n_length*n_steps, n_length, features_in=features_in, features_out=features_out)
@@ -83,6 +108,7 @@ def seq2seq_fit(train, n_steps=3, n_length=90, features_out_num=1, features_out=
     out = TimeDistributed(Dense(features_out_num, activation='sigmoid'))(fc_layer)
     model = Model(inputs=encoder_in, outputs=out)
 
+    es = EarlyStopping(monitor='val_loss', verbose=1, patience=30, restore_best_weights=True)
     # compile model
     opt = keras.optimizers.Adam(learning_rate=lr)
     model.compile(loss='mse', optimizer=opt, metrics=['mae', 'mse'])

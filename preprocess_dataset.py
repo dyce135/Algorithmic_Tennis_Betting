@@ -77,7 +77,8 @@ for i, file in enumerate(os.listdir('Wimbledon')):
 
     df_total = pd.DataFrame({'ltp odds': df_odds['ltp odds'], 'r1 spread': df_runner_1['uncertainty'],
                               'r1 pup': df_runner_1['pup'], 'r2 spread': df_runner_2['uncertainty'], 
-                              'r2 pup': df_runner_2['pup'], 'enhanced_markov': df_markov_data['enhanced_markov_odds']}, index=df_odds.index)
+                              'r2 pup': df_runner_2['pup'], 'enhanced_markov': df_markov_data['enhanced_markov_odds'],
+                              'markov_odds': df_markov_data['markov_odds']}, index=df_odds.index)
     
     # standard = StandardScaler() 
     # minmax = MinMaxScaler()
