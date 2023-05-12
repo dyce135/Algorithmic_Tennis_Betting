@@ -2,7 +2,7 @@ import json
 import time
 import pandas as pd
 from marketmaker2 import MarketMaker
-from simple_market_maker import SimpleMarketMaker
+# from simple_market_maker import SimpleMarketMaker
 
 def json_file_generator(json_file):
     with open(json_file, 'r') as file:
@@ -112,7 +112,7 @@ class SimulatedMarket:
                         market_maker.update_scores_from_row(self.match_data.iloc[current_point])
                         current_point += 1
                 market_maker.place_bets()
-                simple_mm.place_bets()
+                # simple_mm.place_bets()
                 print(market_maker.positions)
                 print(iteration)
                 self.display_market()
@@ -122,7 +122,7 @@ class SimulatedMarket:
                 iteration +=1
 
 # Use the function to load and process the JSON data
-market_definitions, runners = load_and_process_json_data("new.json")
+market_definitions, runners = load_and_process_json_data("1.145392229.json")
 
 match_data = pd.read_csv("match_points.csv")  # Replace with the path to your Excel file
 market = SimulatedMarket(market_definitions, runners, match_data)
@@ -132,19 +132,19 @@ market = SimulatedMarket(market_definitions, runners, match_data)
 
 market_maker = MarketMaker(market)
 
-simple_mm = SimpleMarketMaker(market)
+# simple_mm = SimpleMarketMaker(market)
 
 
 # Simulate real-time market updates with a 1-second delay between each update
-market.simulate_real_time_market(market_maker,48, "new.json", delay=0)
+market.simulate_real_time_market(market_maker, 48, "1.145392229.json", delay=0)
 
 
 # Calculate the market maker's profit
 actual_outcome_id = 2519549  # Change this to the actual player ID of the match outcome
 metrics = market_maker.calculate_metrics()
-metrics2 = simple_mm.calculate_metrics()
+# metrics2 = simple_mm.calculate_metrics()
 print(metrics)
-print(metrics2)
+# print(metrics2)
 
 import matplotlib.pyplot as plt
 

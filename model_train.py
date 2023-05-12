@@ -8,7 +8,7 @@ import seq2seq_model
 from tensorflow.keras.models import load_model
 from matplotlib import pyplot as plt
 
-df = pd.read_csv('2249345v4423910.csv', index_col=0)
+df = pd.read_csv('Data/Train/2249345v4423910.csv', index_col=0)
 data = df.to_numpy()
 
 train_temp, test = train_test_split(data, test_size=0.3, shuffle=False)

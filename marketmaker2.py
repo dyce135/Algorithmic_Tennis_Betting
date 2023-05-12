@@ -1,5 +1,5 @@
 import numpy as np
-import markov_model
+import enhanced as markov_model
 
 class MarketMaker:
     def __init__(self, simulated_market):
@@ -145,31 +145,31 @@ class MarketMaker:
         max_position = 1000
         min_position = -1000
         # Update win probabilities using the Markov model
-        mis, sis, gis, tbis = markov_model.initiate_markov_states()
-        player1_features = {
-            'server_points': 2,
-            'receiver_points': 1,
-            'recent_form': 0.6,
-            'average_rank_point_difference': -485,
-            'average_aces': 13.08,
-            'average_double_faults': 2.94,
-            'break_point_save_percentage': 0.67
-        }
-        player2_features = {
-            'server_points': 2,
-            'receiver_points': 1,
-            'recent_form': 1,
-            'average_rank_point_difference': 485,
-            'average_aces': 7.66,
-            'average_double_faults': 1.52,
-            'break_point_save_percentage': 0.68
-        }
-
-        win_probabilities = markov_model.tennis_model(player1_features, player2_features, self.current_scores["set_score"], self.current_scores["game_score"], mis, sis, gis, tbis)
+        # mis, sis, gis, tbis = markov_model.initiate_markov_states()
+        # player1_features = {
+        #     'server_points': 2,
+        #     'receiver_points': 1,
+        #     'recent_form': 0.6,
+        #     'average_rank_point_difference': -485,
+        #     'average_aces': 13.08,
+        #     'average_double_faults': 2.94,
+        #     'break_point_save_percentage': 0.67
+        # }
+        # player2_features = {
+        #     'server_points': 2,
+        #     'receiver_points': 1,
+        #     'recent_form': 1,
+        #     'average_rank_point_difference': 485,
+        #     'average_aces': 7.66,
+        #     'average_double_faults': 1.52,
+        #     'break_point_save_percentage': 0.68
+        # }
+        #
+        # win_probabilities = markov_model.tennis_model(player1_features, player2_features, self.current_scores["set_score"], self.current_scores["game_score"], mis, sis, gis, tbis)
 
         win_probabilities_dic = {
-            2519549: float(win_probabilities[0]),  
-            2251402: float(win_probabilities[1])   
+            2519549: float(win_probabilities['r1_win'].values),
+            2251402: float(win_probabilities['r2_win'].values)
         }
         print(self.current_scores)
         for runner_data in self.simulated_market.market_data[-1]["bets"]:
