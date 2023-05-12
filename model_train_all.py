@@ -29,7 +29,7 @@ lr = 0.0001
 df = pd.read_csv(join('./Data/Train', train_list[0]), index_col=0)
 data = df.to_numpy()
 # initiate untrained model
-model = seq2seq_model.lstm_model(data, n_steps=n_length, features_out_num=features_out_num, lstm_dim_1=150, lstm_dim_2=200,
+model = seq2seq_model.lstm_model(data, n_steps=n_length, features_out_num=features_out_num, lstm_dim_1=200, lstm_dim_2=200,
                                  features_in=features_in, features_out=features_out, lr=lr)
 
 # fit all training data
