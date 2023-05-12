@@ -23,13 +23,13 @@ features_in = range(1)
 features_out = range(1)
 features_out_num = 1
 epochs = 10
-batch_size = 10
+batch_size = 15
 lr = 0.0001
 
 df = pd.read_csv(join('./Data/Train', train_list[0]), index_col=0)
 data = df.to_numpy()
 # initiate untrained model
-model = seq2seq_model.lstm_model(data, n_steps=n_length, features_out_num=features_out_num,
+model = seq2seq_model.lstm_model(data, n_steps=n_length, features_out_num=features_out_num, lstm_dim_1=150, lstm_dim_2=200,
                                  features_in=features_in, features_out=features_out, lr=lr)
 
 # fit all training data
@@ -46,7 +46,7 @@ for file in train_list:
     print(train_y.shape, train_x.shape)
     # replace last two fully connected layers
     x = model.get_layer('lstm_1').output
-    # x = Dropout(0.2)(x)
+    x = Dropout(0.2)(x)
     x = Dense(16, activation='elu')(x)
     x = Dense(features_out_num, activation='sigmoid')(x)
     model = keras.models.Model(inputs=model.input, outputs=x)
