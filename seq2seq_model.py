@@ -15,15 +15,15 @@ import random
 keras = tf.keras
 
 # ROCM
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'
-# os.environ['LD_LIBRARY_PATH'] = '$LD_LIBRARY_PATH:/opt/rocm-5.3.0/lib'
-# os.environ['ROCM_PATH'] = '/opt/rocm'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'
+os.environ['LD_LIBRARY_PATH'] = '$LD_LIBRARY_PATH:/opt/rocm-5.3.0/lib'
+os.environ['ROCM_PATH'] = '/opt/rocm'
 # cuDNN
-os.environ['CUDA_HOME'] = '/apps/cuda/cuda-11.7.0'
-os.environ['CUDNN_HOME'] = '/apps/cuda/cudnn-8.5-cuda-11.7'
-os.environ['PATH'] = '{$CUDA_HOME}/bin:{$PATH}'
-os.environ['LD_LIBRARY_PATH'] = '{$CUDA_HOME}/lib64:{$CUDNN_HOME}/lib64:{$LD_LIBRARY_PATH}'
+# os.environ['CUDA_HOME'] = '/apps/cuda/cuda-11.7.0'
+# os.environ['CUDNN_HOME'] = '/apps/cuda/cudnn-8.5-cuda-11.7'
+# os.environ['PATH'] = '{$CUDA_HOME}/bin:{$PATH}'
+# os.environ['LD_LIBRARY_PATH'] = '{$CUDA_HOME}/lib64:{$CUDNN_HOME}/lib64:{$LD_LIBRARY_PATH}'
 
 
 def lstm_fit(train, val, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
@@ -45,7 +45,7 @@ def lstm_fit(train, val, n_steps=128, features_out_num=1, features_out=range(1),
     return model, history
 
 
-def lstm_model(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=50, lstm_dim_1=200, lstm_dim_2=200, batch_size=16, epochs=20, lr=0.0001):
+def lstm_model(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=16, lstm_dim_1=50, lstm_dim_2=100, batch_size=16, epochs=20, lr=0.0001):
     # Vanilla LSTM Model - single step output
     train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
     model = Sequential()
@@ -60,7 +60,7 @@ def lstm_model(train, n_steps=128, features_out_num=1, features_out=range(1), fe
     return model
 
 
-def bidirectional(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=16, lstm_dim_1=64, lstm_dim_2=64, lstm_dim_3=32, batch_size=16, epochs=20, lr=0.0001):
+def bidirectional(train, n_steps=128, features_out_num=1, features_out=range(1), features_in=range(8), fc_dim=16, lstm_dim_1=128, lstm_dim_2=128, lstm_dim_3=32, batch_size=16, epochs=20, lr=0.0001):
     # Vanilla LSTM Model - single step output
     train_x, train_y = truncate_single_step(train, n_steps, features_in=features_in, features_out=features_out)
 
