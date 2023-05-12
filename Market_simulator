@@ -1,288 +1,173 @@
-import numpy as np
-import markov_model
+import json
+import time
+import pandas as pd
+from marketmaker2 import MarketMaker
+from simple_market_maker import SimpleMarketMaker
 
-class MarketMaker:
-    def __init__(self, simulated_market):
-        self.simulated_market = simulated_market
-        self.positions = {runner["id"]: 0 for runner in simulated_market.runners}
-        self.mid_price_ema = None
-        self.ema_alpha = 0.1
-        self.inventory_limit = 2000
-        self.base_inventory_limit = 2000
-        self.profits = []
-        self.total_wagered = 0
-        self.total_profit = 0
-        self.wins = 0
-        self.bets = 0
-        self.max_drawdown = 0
-        self.cumulative_profit = []
-        self.inventory_sizes = []
-        self.win_rates = []
-        self.num_winning_trades = 0
-        self.total_trades = 0
-        self.peak = 0
-        self.initial_server_id = None
-        self.initial_receiver_id = None
-        self.current_scores = {
-            "set_score": "0-0",
-            "game_score": "0-0",
-        }
+def json_file_generator(json_file):
+    with open(json_file, 'r') as file:
+        for line in file:
+            yield json.loads(line)
 
-    def adjust_inventory_limit(self, runner_id):
-        base_limit = self.base_inventory_limit
-        market_depth = self.simulated_market.get_market_depth(runner_id)
+def load_and_process_json_data(json_file):
+    json_data_gen = json_file_generator(json_file)
 
-        if market_depth < 1000:
-            depth_factor = 0.25
-        elif market_depth < 5000:
-            depth_factor = 0.5
-        else:
-            depth_factor = 1
+    market_definitions = None
+    runners = None
 
-        market_momentum = self.get_market_momentum(runner_id)
-        if market_momentum > 0:
-            momentum_factor = 1 + market_momentum
-        else:
-            momentum_factor = 1 / (1 - market_momentum)
+    for entry in json_data_gen:
+        if 'marketDefinition' in entry['mc'][0]:
+            market_definitions = entry['mc'][0]['marketDefinition']
+            runners = market_definitions['runners']
+            break
 
-        position = self.positions[runner_id]
-        adjustment_factor = 1 + (abs(position) / base_limit) * self.inventory_limit * depth_factor * momentum_factor
-        adjusted_inventory_limit = base_limit * adjustment_factor
+    return market_definitions, runners
 
-        # Set upper and lower limits for the adjusted inventory limit
-        upper_limit = base_limit * 2  # You can set this value as needed
-        lower_limit = base_limit * 0.5  # You can set this value as needed
 
-        # Ensure the adjusted inventory limit is within the specified bounds while still using the original calculation
-        adjusted_inventory_limit = max(min(adjusted_inventory_limit, upper_limit), lower_limit)
 
-        return adjusted_inventory_limit
+class SimulatedMarket:
+    def __init__(self, market_definition, runners,market_data):
+        self.market_definition = market_definition
+        self.runners = runners
+        self.odds = {runner["id"]: {"back": [], "lay": []} for runner in runners}
+        self.market_data = []
+        self.match_data = match_data
 
-    def update_scores_from_row(self, row):
-        if self.initial_server_id is None:
-            self.initial_server_id = row["Server"]
-            self.initial_receiver_id = row["Receiver"]
-        if int(row["ServerGames"]) >= 6 or int(row["ReceiverGames"]) >= 6:
-            return
-        if row["Server"] == self.initial_server_id:
-            set_score = f"{row['ServerSets']}-{row['ReceiverSets']}"
-            game_score = f"{row['ServerGames']}-{row['ReceiverGames']}"
-        else:
-            set_score = f"{row['ReceiverSets']}-{row['ServerSets']}"
-            game_score = f"{row['ReceiverGames']}-{row['ServerGames']}"
+    def update_odds(self, runner_id, odds, side, tv=None, ltp=None):
+        self.odds[runner_id][side] = odds
+        if tv is not None:
+            self.odds[runner_id]["tv"] = tv
+        if ltp is not None:
+            self.odds[runner_id]["ltp"] = ltp
 
-        self.current_scores = {
-            "set_score": set_score,
-            "game_score": game_score,
-            "server_id": row["Server"],
-            "receiver_id": row["Receiver"]
-        }
-    
-    def kelly_criterion(self, odds, probability):
-        return (odds * probability - (1 - probability)) / odds
-    
-    def get_runner_traded_volume(self, runner_id):
-        traded_volume = 0
-        for market_data in self.simulated_market.market_data:
-            for runner_data in market_data["bets"]:
-                if runner_data["id"] == runner_id:
-                    traded_volume += runner_data["tv"]
+    def display_market(self):
+        print("Market:", self.market_definition["name"])
+        for runner in self.runners:
+            print(runner["name"])
+            print("Back:", self.odds[runner["id"]]["back"])
+            print("Lay:", self.odds[runner["id"]]["lay"])
 
-        return traded_volume
-    
-    def calculate_vwap(self, runner_id):
-        total_volume = self.get_runner_traded_volume(runner_id)
-        if total_volume == 0:
-            return None
+    def process_odds_data(self, odds_update):
+        snapshot = {"bets": []}
+        for item in odds_update:
+            runner_id = item["id"]
+            if "atb" in item:
+                self.update_odds(runner_id, item["atb"], side="back")
+            if "atl" in item:
+                self.update_odds(runner_id, item["atl"], side="lay")
+            snapshot["bets"].append({
+                "id": runner_id, 
+                "odds": self.odds[runner_id],
+                "tv": item.get("tv", 0),  # Adding the 'tv' value
+                "ltp": item.get("ltp", 0)  # Adding the 'ltp' value
+            })
+        self.market_data.append(snapshot)
 
-        weighted_sum = 0
-        for market_data in self.simulated_market.market_data:
+
+    def get_market_depth(self, runner_id):
+        market_depth = 0
+        for market_data in self.market_data:
             for runner in market_data["bets"]:
                 if runner["id"] == runner_id:
-                    weighted_sum += runner["ltp"] * runner["tv"]
+                    if runner["odds"]["back"]:
+                        market_depth += sum([price_data[1] for price_data in runner["odds"]["back"]])
+                    if runner["odds"]["lay"]:
+                        market_depth += sum([price_data[1] for price_data in runner["odds"]["lay"]])
+        return market_depth
 
-        return weighted_sum / total_volume
+    def place_order(self, runner_id, price, side, order_size):
+        if side == "back":
+            current_best_back = self.odds[runner_id]["back"][0][0] if self.odds[runner_id]["back"] else 0
+            if price > current_best_back:
+                self.odds[runner_id]["back"].insert(0, [price, order_size])
+            else:
+                self.odds[runner_id]["back"].append([price, order_size])
+        elif side == "lay":
+            current_best_lay = self.odds[runner_id]["lay"][0][0] if self.odds[runner_id]["lay"] else float("inf")
+            if price < current_best_lay:
+                self.odds[runner_id]["lay"].insert(0, [price, order_size])
+            else:
+                self.odds[runner_id]["lay"].append([price, order_size])
+        return order_size  # Add this line to return the order size
 
-    def get_market_momentum(self, runner_id):
-        ltp_list = []
-        for market_data in self.simulated_market.market_data:
-            for runner in market_data["bets"]:
-                if runner["id"] == runner_id and runner["ltp"]:
-                    ltp_list.append(runner["ltp"])
 
-        if len(ltp_list) < 2:
-            return 0
 
-        return ltp_list[-1] - ltp_list[-2]
 
-    def get_optimal_prices(self, best_back, best_lay, runner_id):
-        # Calculate the VWAP and use it as the reference price
-        vwap = self.calculate_vwap(runner_id)
-        if vwap is None:
-            vwap = (best_back + best_lay) / 2
+    def simulate_real_time_market(self, market_maker,score_update_interval, json_file, delay=0,sampling_interval = 20):
+        json_data_gen = json_file_generator(json_file)
+        current_point = 0
+        iteration = 1  # Add this line to keep track of the number of iterations
 
-        # (Existing logic for calculating optimal prices)
-        position = self.positions[runner_id]
-        inventory_limit = self.inventory_limit if self.inventory_limit != 0 else 1
-        position_risk = abs(position) / inventory_limit
-
-        bid_adjustment = (1 - self.ema_alpha) * (1 + position_risk)
-        ask_adjustment = (1 + self.ema_alpha) * (1 - position_risk)
-
-        bid_price = vwap * bid_adjustment
-        ask_price = vwap * ask_adjustment
-
-        # Incorporate market momentum
-        momentum = self.get_market_momentum(runner_id)
-        bid_price += momentum
-        ask_price += momentum
-
-        return bid_price, ask_price
-
-    def place_bets(self):
-        position_balance_weight = 0.3
-        # Set maximum and minimum position limits for each runner
-        max_position = 1000
-        min_position = -1000
-        # Update win probabilities using the Markov model
-        mis, sis, gis, tbis = markov_model.initiate_markov_states()
-        player1_features = {
-            'server_points': 2,
-            'receiver_points': 1,
-            'recent_form': 0.6,
-            'average_rank_point_difference': -485,
-            'average_aces': 13.08,
-            'average_double_faults': 2.94,
-            'break_point_save_percentage': 0.67
-        }
-        player2_features = {
-            'server_points': 2,
-            'receiver_points': 1,
-            'recent_form': 1,
-            'average_rank_point_difference': 485,
-            'average_aces': 7.66,
-            'average_double_faults': 1.52,
-            'break_point_save_percentage': 0.68
-        }
-
-        win_probabilities = markov_model.tennis_model(player1_features, player2_features, self.current_scores["set_score"], self.current_scores["game_score"], mis, sis, gis, tbis)
-
-        win_probabilities_dic = {
-            2519549: float(win_probabilities[0]),  
-            2251402: float(win_probabilities[1])   
-        }
-        print(self.current_scores)
-        for runner_data in self.simulated_market.market_data[-1]["bets"]:
-            runner_id = runner_data["id"]
-            best_back = runner_data["odds"]["back"][0][0] if runner_data["odds"]["back"] else None
-            best_lay = runner_data["odds"]["lay"][0][0] if runner_data["odds"]["lay"] else None
-
-            if best_back is None or best_lay is None:
+        for i, entry in enumerate(json_data_gen):
+            if i % sampling_interval != 0:
                 continue
+            if 'marketDefinition' in entry['mc'][0]:
+                self.market_definition = entry['mc'][0]['marketDefinition']
+                self.runners = self.market_definition['runners']
 
-            # Adjust the inventory limit for the current runner
-            self.inventory_limit = self.adjust_inventory_limit(runner_id)
-            print(f"Adjusted inventory limit for runner {runner_id}: {self.inventory_limit}")
+            if 'rc' in entry['mc'][0]:
+                self.process_odds_data(entry['mc'][0]['rc'])
+                if iteration % score_update_interval == 0:
+                    if current_point < len(self.match_data):
+                        market_maker.update_scores_from_row(self.match_data.iloc[current_point])
+                        current_point += 1
+                market_maker.place_bets()
+                simple_mm.place_bets()
+                print(market_maker.positions)
+                print(iteration)
+                self.display_market()
+                print("\n---\n")
+                print(delay)
+                time.sleep(delay)
+                iteration +=1
 
-            bid_price, ask_price = self.get_optimal_prices(best_back, best_lay, runner_id)
+# Use the function to load and process the JSON data
+market_definitions, runners = load_and_process_json_data("new.json")
 
-            win_probability = win_probabilities_dic[runner_id]
-            print(runner_id)
-            print(win_probability)
-            position = self.positions[runner_id]
-
-            # Calculate the weighted win probability for each runner
-            weighted_win_probability = win_probability * (1 - position_balance_weight * (1 - abs(position) / self.inventory_limit))
-            print(weighted_win_probability)
-
-            # Use the win probabilities in the calculation of the inventory risk
-            
-            inventory_risk = abs(position) / (self.inventory_limit * weighted_win_probability)
-
-            bid_adjustment = (1 - self.ema_alpha) * (1 + inventory_risk)
-            ask_adjustment = (1 + self.ema_alpha) * (1 - inventory_risk)
-
-            bid_price = bid_price * bid_adjustment
-            ask_price = ask_price * ask_adjustment
-
-            kelly_fraction = 0.6  # Adjust this value between 0 and 1 to control the weight of the win probabilities
-
-            kelly_back = kelly_fraction * self.kelly_criterion(best_back, weighted_win_probability)
-            kelly_lay = kelly_fraction * self.kelly_criterion(best_lay, 1 - weighted_win_probability)
-            # Calculate the maximum allowed order sizes based on the inventory limit
-            max_back_order_size = max(0, self.inventory_limit - position)
-            max_lay_order_size = max(0, self.inventory_limit + position)
-
-            # Calculate the desired order sizes based on the kelly fractions
-            desired_back_order_size = max(0, position + self.inventory_limit * kelly_back)
-            desired_lay_order_size = max(0, position - self.inventory_limit * kelly_lay)
+match_data = pd.read_csv("match_points.csv")  # Replace with the path to your Excel file
+market = SimulatedMarket(market_definitions, runners, match_data)
 
 
-            # Limit the order sizes to the maximum allowed values
-            back_order_size = min(desired_back_order_size, max_back_order_size)
-            lay_order_size = min(desired_lay_order_size, max_lay_order_size)
+# Create an instance of the MarketMaker class
 
-            order_back = self.simulated_market.place_order(runner_id, bid_price, "back", back_order_size)
-            order_lay = self.simulated_market.place_order(runner_id, ask_price, "lay", lay_order_size)
+market_maker = MarketMaker(market)
 
-
-            if order_back is not None:
-                self.positions[runner_id] += order_back
-                self.total_wagered += bid_price * back_order_size
-                self.bets += 1
-            if order_lay is not None:
-                self.positions[runner_id] -= order_lay
-                self.total_wagered += ask_price * lay_order_size
-                self.bets += 1
-            
-            # Ensure that the position doesn't exceed the maximum and minimum position limits
-            self.positions[runner_id] = max(min(self.positions[runner_id], max_position), min_position)
-            profit = self.calculate_profit(2519549)
-            self.profits.append(profit)
-            self.inventory_sizes.append(self.positions[runner_id])
-
-            if profit > 0:
-                self.num_winning_trades += 1
-            self.total_trades += 1
-            self.win_rates.append(self.num_winning_trades / self.total_trades)
+simple_mm = SimpleMarketMaker(market)
 
 
+# Simulate real-time market updates with a 1-second delay between each update
+market.simulate_real_time_market(market_maker,48, "new.json", delay=0)
 
-                
-    def calculate_profit(self, actual_outcome_id):
-        profit = 0
-        for runner_id in self.positions:
-            position = self.positions[runner_id]
-            last_odds = None
 
-            for market_data in reversed(self.simulated_market.market_data):
-                for runner_data in market_data["bets"]:
-                    if runner_data["id"] == runner_id:
-                        last_odds = runner_data["odds"]
-                        break
-                if last_odds is not None:
-                    break
+# Calculate the market maker's profit
+actual_outcome_id = 2519549  # Change this to the actual player ID of the match outcome
+metrics = market_maker.calculate_metrics()
+metrics2 = simple_mm.calculate_metrics()
+print(metrics)
+print(metrics2)
 
-            if last_odds is not None:
-                if runner_id == actual_outcome_id:
-                    if position > 0 and last_odds["back"]:
-                        profit += position * last_odds["back"][0][0]
-                else:
-                    if position < 0 and last_odds["lay"]:
-                        profit -= position * last_odds["lay"][0][0]
+import matplotlib.pyplot as plt
 
-        self.total_profit += profit
-        self.cumulative_profit.append(self.total_profit)
-        if runner_id == actual_outcome_id:
-            self.wins += 1
-        return profit
-    
-    def calculate_metrics(self):
-        roi = self.total_profit / self.total_wagered if self.total_wagered > 0 else 0
-        hit_rate = self.wins / self.bets if self.bets > 0 else 0
-        return {
-            "total_profit": self.total_profit,
-            "roi": roi,
-            "hit_rate": hit_rate,
-            "max_drawdown": self.max_drawdown,
-        }
+plt.figure(figsize=(10,6))
+plt.plot(range(len(market_maker.cumulative_profit)), market_maker.cumulative_profits)
+plt.xlabel('Number of Trades')
+plt.ylabel('Cumulative Profit')
+plt.title('Cumulative Profit Over Time')
+plt.show()
+plt.savefig("figure1.png")
+
+plt.figure(figsize=(10,6))
+plt.hist(market_maker.profits_per_trade, bins=50)
+plt.xlabel('Profit')
+plt.ylabel('Number of Trades')
+plt.title('Histogram of Profits Per Trade')
+plt.show()
+plt.savefig("figure2.png")
+
+plt.figure(figsize=(10,6))
+plt.plot(range(len(market_maker.win_rates)), market_maker.win_rates)
+plt.xlabel('Number of Trades')
+plt.ylabel('Win Rate')
+plt.title('Win Rate Over Time')
+plt.show()
+plt.savefig("figure3.png")
